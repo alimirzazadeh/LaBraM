@@ -204,7 +204,6 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         self.files = [f for f in self.files if f.endswith('.pkl')]
         self.resolution=0.2
         self.window_length=5
-        self.num_windows=120
         self.stride_length=1
         self.min_freq = 0
         self.max_freq = 30 
@@ -219,6 +218,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         X = sample["signal"]
         Y = int(sample["label"][0] - 1)
         X = torch.from_numpy(X).float()
+        bp() 
         X = self.spec_transform(X.T)
         return X, Y
 
