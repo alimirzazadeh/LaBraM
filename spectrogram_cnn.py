@@ -236,6 +236,7 @@ class SpectrogramCNN(nn.Module):
     def preprocess_input(self,x):
         return self.spec_transform(x)
     def forward(self, x):
+        bp() 
         x = self.preprocess_input(x)
         x = self.model(x)
         return x 
@@ -245,7 +246,6 @@ if __name__ == "__main__":
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
     model = SpectrogramCNN(model='conv1d')
     for X, Y in trainloader:
-        bp() 
         output = model(X)
         print(output.shape, Y)
         break
