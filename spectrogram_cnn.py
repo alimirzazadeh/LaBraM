@@ -244,6 +244,7 @@ class SpectrogramCNN(nn.Module):
     
 if __name__ == "__main__":
     trainset = TUABBaselineDataset(mode='train')
+    aa = trainset[0]
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
     model = SpectrogramCNN(model='conv1d')
     for X, Y in trainloader:
