@@ -30,10 +30,12 @@ class SpectrogramCNN1D(nn.Module):
     
     def __init__(self, num_classes=2, dropout=0.5):
         super(SpectrogramCNN1D, self).__init__()
-        
+        self.num_channels = 23
+        self.num_time_steps = 6
+        self.num_freq_bins = 150
         # 1D Convolutional layers (applied along frequency axis)
         # Input channels = 19 (EEG channels)
-        self.conv1 = nn.Conv1d(in_channels=19, out_channels=64, kernel_size=7, padding=3)
+        self.conv1 = nn.Conv1d(in_channels=self.num_channels, out_channels=64, kernel_size=7, padding=3)
         self.bn1 = nn.BatchNorm1d(64)
         self.pool1 = nn.MaxPool1d(kernel_size=2, stride=2)
         
@@ -46,7 +48,7 @@ class SpectrogramCNN1D(nn.Module):
         self.pool3 = nn.MaxPool1d(kernel_size=2, stride=2)
         
         # Calculate size after convolutions: 160 -> 80 -> 40 -> 20
-        self.feature_size = 256 * 20 * 6  # channels * freq_bins * time_steps
+        self.feature_size = 256 * self.num_freq_bins * self.num_time_steps  # channels * freq_bins * time_steps
         
         # Fully connected layers
         self.fc1 = nn.Linear(self.feature_size, 512)
@@ -57,11 +59,12 @@ class SpectrogramCNN1D(nn.Module):
         print(f"Total parameters: {sum(p.numel() for p in self.parameters()):,}")
     def forward(self, x):
         # Input shape: (batch, 6, 19, 160)
+        bp() 
         batch_size = x.size(0)
         time_steps = x.size(1)
         
         # Reshape to process each time step: (batch * 6, 19, 160)
-        x = x.view(batch_size * time_steps, 19, 160)
+        x = x.view(batch_size * self.num_time_steps, self.num_channels, self.num_freq_bins)
         
         # Apply 1D convolutions along frequency axis
         x = self.pool1(F.relu(self.bn1(self.conv1(x))))
@@ -69,7 +72,7 @@ class SpectrogramCNN1D(nn.Module):
         x = self.pool3(F.relu(self.bn3(self.conv3(x))))
         
         # Reshape back: (batch, 6, 256, 20)
-        x = x.view(batch_size, time_steps, -1)
+        x = x.view(batch_size, self.num_time_steps, -1)
         
         # Flatten and concatenate features from all time steps
         x = x.view(batch_size, -1)
@@ -100,10 +103,12 @@ class SpectrogramCNN2D(nn.Module):
     
     def __init__(self, num_classes=2, dropout=0.5):
         super(SpectrogramCNN2D, self).__init__()
-        
+        self.num_channels = 23
+        self.num_freq_bins = 150
+        self.num_time_steps = 6
         # 2D Convolutional layers
         # Input: 6 channels (time steps), spatial dims: 19 x 160
-        self.conv1 = nn.Conv2d(in_channels=6, out_channels=32, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(in_channels=self.num_time_steps, out_channels=32, kernel_size=3, padding=1)
         self.bn1 = nn.BatchNorm2d(32)
         self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         
@@ -131,7 +136,7 @@ class SpectrogramCNN2D(nn.Module):
     def forward(self, x):
         # Input shape: (batch, 6, 19, 160)
         # Already in the right format for 2D conv
-        
+        bp() 
         x = self.pool1(F.relu(self.bn1(self.conv1(x))))
         x = self.pool2(F.relu(self.bn2(self.conv2(x))))
         x = self.pool3(F.relu(self.bn3(self.conv3(x))))
@@ -218,9 +223,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         X = sample["signal"]
         Y = int(sample["label"][0] - 1)
         X = torch.from_numpy(X).float()
-        print(X.shape)
         X = self.spec_transform(X.T)
-        print(X.shape)
         return X, Y
 
 class SpectrogramCNN(nn.Module):
@@ -239,7 +242,7 @@ class SpectrogramCNN(nn.Module):
     def preprocess_input(self,x):
         return self.spec_transform(x)
     def forward(self, x):
-        bp() 
+        x = torch.moveaxis(x, 3, 1)
         x = self.model(x)
         return x 
     
