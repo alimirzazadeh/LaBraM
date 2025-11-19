@@ -193,7 +193,7 @@ class SpecNorm:
     def __call__(self, data):
         return (data - self.mean_vector) / self.std_vector
 
-class TUABBaselineLoader(torch.utils.data.Dataset):
+class TUABBaselineDataset(torch.utils.data.Dataset):
     def __init__(self, mode='train'):
         assert mode in ['train','val','test']
         self.mode = mode
@@ -206,10 +206,9 @@ class TUABBaselineLoader(torch.utils.data.Dataset):
         return len(self.files)
     def __getitem__(self, index):
         sample = pickle.load(open(os.path.join(self.root, self.files[index]), "rb"))
-        bp() 
         X = sample["signal"]
         Y = int(sample["label"][0] - 1)
-        X = torch.FloatTensor(X)
+        X = torch.from_numpy(X).float()
         return X, Y
 
 class SpectrogramCNN(nn.Module):
@@ -242,10 +241,10 @@ class SpectrogramCNN(nn.Module):
         return x 
     
 if __name__ == "__main__":
-    loader = TUABBaselineLoader(mode='train')
+    trainset = TUABBaselineDataset(mode='train')
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
     model = SpectrogramCNN(model='conv1d')
-    for i in range(len(loader)):
-        X, Y = loader[i]
+    for X, Y in trainloader:
         bp() 
         output = model(X)
         print(output.shape, Y)
