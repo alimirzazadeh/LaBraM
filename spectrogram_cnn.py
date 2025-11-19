@@ -64,7 +64,7 @@ class SpectrogramCNN1D(nn.Module):
         time_steps = x.size(1)
         
         # Reshape to process each time step: (batch * 6, 19, 160)
-        x = x.view(batch_size * self.num_time_steps, self.num_channels, self.num_freq_bins)
+        x = x.reshape(batch_size * self.num_time_steps, self.num_channels, self.num_freq_bins)
         
         # Apply 1D convolutions along frequency axis
         x = self.pool1(F.relu(self.bn1(self.conv1(x))))
@@ -72,10 +72,10 @@ class SpectrogramCNN1D(nn.Module):
         x = self.pool3(F.relu(self.bn3(self.conv3(x))))
         
         # Reshape back: (batch, 6, 256, 20)
-        x = x.view(batch_size, self.num_time_steps, -1)
+        x = x.reshape(batch_size, self.num_time_steps, -1)
         
         # Flatten and concatenate features from all time steps
-        x = x.view(batch_size, -1)
+        x = x.reshape(batch_size, -1)
         
         # Fully connected layers
         x = F.relu(self.fc1(x))
@@ -144,7 +144,7 @@ class SpectrogramCNN2D(nn.Module):
         
         # Global average pooling
         x = self.global_pool(x)
-        x = x.view(x.size(0), -1)
+        x = x.reshape(x.size(0), -1)
         
         # Fully connected layers
         x = F.relu(self.fc1(x))
