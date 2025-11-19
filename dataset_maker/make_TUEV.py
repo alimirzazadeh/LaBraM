@@ -219,7 +219,8 @@ load_up_objects(
 
 
 #transfer to train, eval, and test
-root = "/share/TUEV/"
+# root = "/share/TUEV/"
+root = "/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.0/edf"
 seed = 4523
 np.random.seed(seed)
 
