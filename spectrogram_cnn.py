@@ -202,20 +202,6 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         self.root = '/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf/processed/processed_' + mode
         self.files = os.listdir(self.root)
         self.files = [f for f in self.files if f.endswith('.pkl')]
-    def __len__(self):
-        return len(self.files)
-    def __getitem__(self, index):
-        sample = pickle.load(open(os.path.join(self.root, self.files[index]), "rb"))
-        X = sample["signal"]
-        Y = int(sample["label"][0] - 1)
-        X = torch.from_numpy(X).float()
-        return X, Y
-
-class SpectrogramCNN(nn.Module):
-    def __init__(self, model='conv1d') -> None:
-        super().__init__()
-        assert model in ['conv1d','conv2d']
-        
         self.resolution=0.2
         self.window_length=5
         self.num_windows=120
@@ -226,6 +212,22 @@ class SpectrogramCNN(nn.Module):
         self.spec_transform = SpectrogramTransform(
                 fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
                 pad=0, min_freq=self.min_freq, max_freq=self.max_freq)
+    def __len__(self):
+        return len(self.files)
+    def __getitem__(self, index):
+        sample = pickle.load(open(os.path.join(self.root, self.files[index]), "rb"))
+        X = sample["signal"]
+        Y = int(sample["label"][0] - 1)
+        X = torch.from_numpy(X).float()
+        X = self.spec_transform(X.T)
+        return X, Y
+
+class SpectrogramCNN(nn.Module):
+    def __init__(self, model='conv1d') -> None:
+        super().__init__()
+        assert model in ['conv1d','conv2d']
+        
+
         self.model_type = model 
         if self.model_type == 'conv1d':
             self.model = SpectrogramCNN1D()
@@ -237,7 +239,6 @@ class SpectrogramCNN(nn.Module):
         return self.spec_transform(x)
     def forward(self, x):
         bp() 
-        x = self.preprocess_input(x)
         x = self.model(x)
         return x 
     
