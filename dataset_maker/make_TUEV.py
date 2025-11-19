@@ -187,36 +187,36 @@ def save_pickle(object, filename):
 TUEV dataset is downloaded from https://isip.piconepress.com/projects/tuh_eeg/html/downloads.shtml
 """
 
-root = "/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf"
-train_out_dir = os.path.join(root, "processed_train")
-eval_out_dir = os.path.join(root, "processed_eval")
+# root = "/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf"
+# train_out_dir = os.path.join(root, "processed_train")
+# eval_out_dir = os.path.join(root, "processed_eval")
 
-if not os.path.exists(train_out_dir):
-    os.makedirs(train_out_dir)
-if not os.path.exists(eval_out_dir):
-    os.makedirs(eval_out_dir)
+# if not os.path.exists(train_out_dir):
+#     os.makedirs(train_out_dir)
+# if not os.path.exists(eval_out_dir):
+#     os.makedirs(eval_out_dir)
 
-BaseDirTrain = os.path.join(root, "train")
-fs = 200
-TrainFeatures = np.empty(
-    (0, 23, fs)
-)  # 0 for lack of intialization, 22 for channels, fs for num of points
-TrainLabels = np.empty([0, 1])
-TrainOffendingChannel = np.empty([0, 1])
-load_up_objects(
-    BaseDirTrain, TrainFeatures, TrainLabels, TrainOffendingChannel, train_out_dir
-)
+# BaseDirTrain = os.path.join(root, "train")
+# fs = 200
+# TrainFeatures = np.empty(
+#     (0, 23, fs)
+# )  # 0 for lack of intialization, 22 for channels, fs for num of points
+# TrainLabels = np.empty([0, 1])
+# TrainOffendingChannel = np.empty([0, 1])
+# load_up_objects(
+#     BaseDirTrain, TrainFeatures, TrainLabels, TrainOffendingChannel, train_out_dir
+# )
 
-BaseDirEval = os.path.join(root, "eval")
-fs = 200
-EvalFeatures = np.empty(
-    (0, 23, fs)
-)  # 0 for lack of intialization, 22 for channels, fs for num of points
-EvalLabels = np.empty([0, 1])
-EvalOffendingChannel = np.empty([0, 1])
-load_up_objects(
-    BaseDirEval, EvalFeatures, EvalLabels, EvalOffendingChannel, eval_out_dir
-)
+# BaseDirEval = os.path.join(root, "eval")
+# fs = 200
+# EvalFeatures = np.empty(
+#     (0, 23, fs)
+# )  # 0 for lack of intialization, 22 for channels, fs for num of points
+# EvalLabels = np.empty([0, 1])
+# EvalOffendingChannel = np.empty([0, 1])
+# load_up_objects(
+#     BaseDirEval, EvalFeatures, EvalLabels, EvalOffendingChannel, eval_out_dir
+# )
 
 
 #transfer to train, eval, and test
@@ -237,8 +237,11 @@ val_files = [f for f in train_files if f.split("_")[0] in val_sub]
 train_files = [f for f in train_files if f.split("_")[0] in train_sub]
 
 for file in train_files:
-    os.system(f"cp {os.path.join(root, 'processed_train', file)} {os.path.join(root, 'processed', 'processed_train')}")
+    os.makedirs(os.path.join(root, 'processed', 'processed_train'), exist_ok=True)
+    os.system(f"cp {os.path.join(root, 'processed_train', file)} {os.path.join(root, 'processed', 'processed_train', file)}")
 for file in val_files:
-    os.system(f"cp {os.path.join(root, 'processed_train', file)} {os.path.join(root, 'processed', 'processed_eval')}")
+    os.makedirs(os.path.join(root, 'processed', 'processed_eval'), exist_ok=True)
+    os.system(f"cp {os.path.join(root, 'processed_train', file)} {os.path.join(root, 'processed', 'processed_eval', file)}")
 for file in test_files:
-    os.system(f"cp {os.path.join(root, 'processed_eval', file)} {os.path.join(root, 'processed', 'processed_test')}")
+    os.makedirs(os.path.join(root, 'processed', 'processed_test'), exist_ok=True)
+    os.system(f"cp {os.path.join(root, 'processed_eval', file)} {os.path.join(root, 'processed', 'processed_test', file)}")
