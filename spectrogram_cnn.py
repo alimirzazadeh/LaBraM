@@ -11,7 +11,7 @@ import torchvision.transforms as transforms
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import pickle
 
 class SpectrogramCNN1D(nn.Module):
     """
@@ -193,6 +193,24 @@ class SpecNorm:
     def __call__(self, data):
         return (data - self.mean_vector) / self.std_vector
 
+class TUABBaselineLoader(torch.utils.data.Dataset):
+    def __init__(self, mode='train'):
+        assert mode in ['train','val','test']
+        self.mode = mode
+        if self.mode == 'val':
+            self.mode = 'eval'
+        self.root = '/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf/processed/processed_' + mode
+        self.files = os.listdir(self.root)
+        self.files = [f for f in self.files if f.endswith('.pkl')]
+    def __len__(self):
+        return len(self.files)
+    def __getitem__(self, index):
+        sample = pickle.load(open(os.path.join(self.root, self.files[index]), "rb"))
+        bp() 
+        X = sample["signal"]
+        Y = int(sample["label"][0] - 1)
+        X = torch.FloatTensor(X)
+        return X, Y
 
 class SpectrogramCNN(nn.Module):
     def __init__(self, model='conv1d') -> None:
@@ -222,3 +240,13 @@ class SpectrogramCNN(nn.Module):
         x = self.preprocess_input(x)
         x = self.model(x)
         return x 
+    
+if __name__ == "__main__":
+    loader = TUABBaselineLoader(mode='train')
+    model = SpectrogramCNN(model='conv1d')
+    for i in range(len(loader)):
+        X, Y = loader[i]
+        bp() 
+        output = model(X)
+        print(output.shape, Y)
+        break
