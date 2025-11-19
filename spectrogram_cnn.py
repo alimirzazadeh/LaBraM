@@ -59,7 +59,6 @@ class SpectrogramCNN1D(nn.Module):
         print(f"Total parameters: {sum(p.numel() for p in self.parameters()):,}")
     def forward(self, x):
         # Input shape: (batch, 6, 19, 160)
-        bp() 
         batch_size = x.size(0)
         time_steps = x.size(1)
         
@@ -72,7 +71,8 @@ class SpectrogramCNN1D(nn.Module):
         x = self.pool3(F.relu(self.bn3(self.conv3(x))))
         
         # Reshape back: (batch, 6, 256, 20)
-        x = x.reshape(batch_size, self.num_time_steps, -1)
+        bp() 
+        x = x.reshape(batch_size, self.num_time_steps, 256, -1)
         
         # Flatten and concatenate features from all time steps
         x = x.reshape(batch_size, -1)
