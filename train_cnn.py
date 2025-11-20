@@ -135,7 +135,7 @@ def logger(writer, metrics, phase, epoch_index):
 def train_epoch(model, loader, optimizer, loss_fn, device, metrics):
     model.train()
     running_loss = 0.0
-    for X, Y in loader:
+    for X, Y in tqdm(loader):
         X = X.to(device)
         Y = Y.to(device)
         optimizer.zero_grad()
@@ -155,7 +155,7 @@ def validate_epoch(model, loader, loss_fn, device, metrics):
     model.eval()
     running_loss = 0.0
     with torch.no_grad():
-        for X, Y in loader:
+        for X, Y in tqdm(loader):
             X = X.to(device)
             Y = Y.to(device).long()
             outputs = model(X)
