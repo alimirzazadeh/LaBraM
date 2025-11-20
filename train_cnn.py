@@ -72,7 +72,6 @@ class MulticlassMetrics:
         labels = labels.long()
         
         # Update each metric
-        bp() 
         self.metrics_dict["balanced_acc"].update(pred_classes, labels)
         self.metrics_dict["kappa"].update(pred_classes, labels)
         self.metrics_dict["f1_weighted"].update(pred_classes, labels)
@@ -189,7 +188,7 @@ def main(args):
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
     loss_fn = nn.CrossEntropyLoss()
-    metrics = MulticlassMetrics(num_classes=num_classes, device='cuda')
+    metrics = MulticlassMetrics(num_classes=num_classes, device=device)
 
     for epoch in tqdm(range(epochs)):
         val_loss, val_results = validate_epoch(model, val_loader, loss_fn, device, metrics)
