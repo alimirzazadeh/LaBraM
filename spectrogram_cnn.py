@@ -121,7 +121,7 @@ class CustomResNet18(nn.Module):
         self.layer3 = self._make_layer(256, blocks=2, stride_h=2, stride_w=2)
 
         # layer4: 512 channels, H /2, W same: 10x1 -> 5x1
-        # self.layer4 = self._make_layer(512, blocks=2, stride_h=2, stride_w=1)
+        self.layer4 = self._make_layer(512, blocks=2, stride_h=2, stride_w=1)
 
         # No final spatial pooling, so forward_features returns [B, 512, 5, 1]
         self.num_classes = num_classes
@@ -183,7 +183,7 @@ class CustomResNet18(nn.Module):
         x = self.layer1(x)  # [B, 64, 40, 3]
         x = self.layer2(x)  # [B, 128, 20, 2]
         x = self.layer3(x)  # [B, 256, 10, 1]
-        # x = self.layer4(x)  # [B, 512,  5, 1]
+        x = self.layer4(x)  # [B, 512,  5, 1]
 
         return x  # [B, 512, 5, 1]
 
