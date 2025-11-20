@@ -250,8 +250,11 @@ if __name__ == "__main__":
     aa = trainset[0]
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
     model = SpectrogramCNN(model='conv1d')
+    model2 = SpectrogramCNN(model='conv2d')
     for X, Y in trainloader:
         output = model(X)
         bp() 
-        print(output.shape, Y)
+        output2 = model2(X)
+        bp() 
+        print(output.shape, output2.shape, Y)
         break
