@@ -68,8 +68,8 @@ class MulticlassMetrics:
         if predictions.shape[1] > 1:
             pred_classes = torch.argmax(predictions, dim=1)
         else:
-            pred_classes = (predictions > 0).squeeze(1)
-        labels = labels.squeeze(1).long()
+            pred_classes = (predictions > 0)
+        labels = labels.long()
         
         # Update each metric
         bp() 
