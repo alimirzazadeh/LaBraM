@@ -28,13 +28,13 @@ class SpectrogramCNN1D(nn.Module):
     - Passes through fully connected layers for classification
     """
     
-    def __init__(self, num_classes=2, dropout=0.5):
+    def __init__(self, num_classes=2, dropout=0.3):
         super(SpectrogramCNN1D, self).__init__()
         self.num_channels = 23
         self.num_time_steps = 6
         self.num_freq_bins = 150
         # 1D Convolutional layers (applied along frequency axis)
-        # Input channels = 19 (EEG channels)
+        # Input channels = 23 (EEG channels)
         self.conv1 = nn.Conv1d(in_channels=self.num_channels, out_channels=64, kernel_size=7, padding=3)
         self.bn1 = nn.BatchNorm1d(64)
         self.pool1 = nn.MaxPool1d(kernel_size=2, stride=2)
@@ -48,8 +48,8 @@ class SpectrogramCNN1D(nn.Module):
         self.pool3 = nn.MaxPool1d(kernel_size=2, stride=2)
         
         # Calculate size after convolutions: 160 -> 80 -> 40 -> 20
-        self.feature_size = 256 * self.num_freq_bins * self.num_time_steps  # channels * freq_bins * time_steps
-        
+        self.feature_size = 256 * (self.num_freq_bins // 8) * self.num_time_steps  # channels * freq_bins // 8 * time_steps
+        ## note: feature size is pretty large: 256 * 19 * 6 = 29568
         # Fully connected layers
         self.fc1 = nn.Linear(self.feature_size, 512)
         self.dropout1 = nn.Dropout(dropout)
@@ -71,7 +71,6 @@ class SpectrogramCNN1D(nn.Module):
         x = self.pool3(F.relu(self.bn3(self.conv3(x))))
         
         # Reshape back: (batch, 6, 256, 20)
-        bp() 
         x = x.reshape(batch_size, self.num_time_steps, 256, -1)
         
         # Flatten and concatenate features from all time steps
@@ -253,5 +252,6 @@ if __name__ == "__main__":
     model = SpectrogramCNN(model='conv1d')
     for X, Y in trainloader:
         output = model(X)
+        bp() 
         print(output.shape, Y)
         break
