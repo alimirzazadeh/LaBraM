@@ -171,7 +171,7 @@ def main(args):
     model_type = args.model_type
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    writer = SummaryWriter(log_dir='logs')
+    writer = SummaryWriter(log_dir='/data/scratch/alimirz/2025/EEG_FM/TUEV/logs')
     trainset = TUABBaselineDataset(mode='train')
     valset = TUABBaselineDataset(mode='val')
     testset = TUABBaselineDataset(mode='test')
