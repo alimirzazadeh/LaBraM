@@ -141,7 +141,7 @@ def train_epoch(model, loader, optimizer, loss_fn, device, metrics):
         Y = Y.to(device)
         optimizer.zero_grad()
         outputs = model(X)
-        Y = Y.float().unsqueeze(1)  # for BCEWithLogitsLoss
+        # Y = Y.float().unsqueeze(1)  # for BCEWithLogitsLoss
         loss = loss_fn(outputs, Y)
         loss.backward()
         optimizer.step()
@@ -158,9 +158,9 @@ def validate_epoch(model, loader, loss_fn, device, metrics):
     with torch.no_grad():
         for X, Y in loader:
             X = X.to(device)
-            Y = Y.to(device)
+            Y = Y.to(device).long()
             outputs = model(X)
-            Y = Y.float().unsqueeze(1)  # for BCEWithLogitsLoss
+            # Y = Y.to(device).long()
             loss = loss_fn(outputs, Y)
             metrics.update(outputs, Y)
             running_loss += loss.item() * X.size(0)
@@ -188,7 +188,7 @@ def main(args):
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
-    loss_fn = nn.BCEWithLogitsLoss()
+    loss_fn = nn.CrossEntropyLoss()
     metrics = MulticlassMetrics(num_classes=num_classes, device='cuda')
 
     for epoch in tqdm(range(epochs)):
