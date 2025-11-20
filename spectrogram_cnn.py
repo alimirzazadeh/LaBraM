@@ -13,6 +13,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pickle
 
+""" 
+To do: reorder the channels to make sense for the conv2d model 
+add metrics (same as paper) and create training script 
+compare and modify the model architectures 
+
+"""
+
 class SpectrogramCNN1D(nn.Module):
     """
     1D CNN that processes frequency bins for each time step independently.
@@ -28,7 +35,7 @@ class SpectrogramCNN1D(nn.Module):
     - Passes through fully connected layers for classification
     """
     
-    def __init__(self, num_classes=2, dropout=0.3):
+    def __init__(self, num_classes=1, dropout=0.3):
         super(SpectrogramCNN1D, self).__init__()
         self.num_channels = 23
         self.num_time_steps = 6
@@ -100,7 +107,7 @@ class SpectrogramCNN2D(nn.Module):
     - Global pooling and fully connected layers for classification
     """
     
-    def __init__(self, num_classes=2, dropout=0.5):
+    def __init__(self, num_classes=1, dropout=0.3):
         super(SpectrogramCNN2D, self).__init__()
         self.num_channels = 23
         self.num_freq_bins = 150
@@ -135,7 +142,6 @@ class SpectrogramCNN2D(nn.Module):
     def forward(self, x):
         # Input shape: (batch, 6, 19, 160)
         # Already in the right format for 2D conv
-        bp() 
         x = self.pool1(F.relu(self.bn1(self.conv1(x))))
         x = self.pool2(F.relu(self.bn2(self.conv2(x))))
         x = self.pool3(F.relu(self.bn3(self.conv3(x))))
@@ -253,7 +259,6 @@ if __name__ == "__main__":
     model2 = SpectrogramCNN(model='conv2d')
     for X, Y in trainloader:
         output = model(X)
-        bp() 
         output2 = model2(X)
         bp() 
         print(output.shape, output2.shape, Y)
