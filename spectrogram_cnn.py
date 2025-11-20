@@ -413,7 +413,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
 class SpectrogramCNN(nn.Module):
     def __init__(self, model='conv1d', num_classes=6) -> None:
         super().__init__()
-        assert model in ['conv1d','conv2d']
+        assert model in ['conv1d','conv2d','resnet']
         
 
         self.model_type = model 
