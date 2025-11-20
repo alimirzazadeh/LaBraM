@@ -65,7 +65,11 @@ class MulticlassMetrics:
             labels (torch.Tensor): Ground truth labels of shape (batch_size,)
         """
         # Convert logits to class predictions for accuracy, kappa, and f1
-        pred_classes = torch.argmax(predictions, dim=1)
+        if predictions.shape[1] > 1:
+            pred_classes = torch.argmax(predictions, dim=1)
+        else:
+            pred_classes = (predictions > 0).squeeze(1)
+        labels = labels.squeeze(1).long()
         
         # Update each metric
         bp() 
@@ -170,7 +174,7 @@ def main(args):
     lr = args.lr
     epochs = args.epochs
     model_type = args.model_type
-
+    num_classes = args.num_classes
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(log_dir='/data/scratch/alimirz/2025/EEG_FM/TUEV/logs')
     trainset = TUABBaselineDataset(mode='train')
@@ -180,12 +184,12 @@ def main(args):
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    model = SpectrogramCNN(model=model_type)
+    model = SpectrogramCNN(model=model_type, num_classes=num_classes)
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
     loss_fn = nn.BCEWithLogitsLoss()
-    metrics = MulticlassMetrics(num_classes=6, device='cuda')
+    metrics = MulticlassMetrics(num_classes=num_classes, device='cuda')
 
     for epoch in tqdm(range(epochs)):
         val_loss, val_results = validate_epoch(model, val_loader, loss_fn, device, metrics)
@@ -199,6 +203,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--num_classes', type=int, default=6)
     parser.add_argument('--model_type', type=str, default='conv1d', choices=['conv1d', 'conv2d'])
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=4)
