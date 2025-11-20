@@ -209,7 +209,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         self.mode = mode
         if self.mode == 'val':
             self.mode = 'eval'
-        self.root = '/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf/processed/processed_' + mode
+        self.root = '/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf/processed/processed_' + self.mode
         self.files = os.listdir(self.root)
         self.files = [f for f in self.files if f.endswith('.pkl')]
         self.resolution=0.2
