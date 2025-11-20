@@ -232,16 +232,16 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         return X, Y
 
 class SpectrogramCNN(nn.Module):
-    def __init__(self, model='conv1d') -> None:
+    def __init__(self, model='conv1d', num_classes=6) -> None:
         super().__init__()
         assert model in ['conv1d','conv2d']
         
 
         self.model_type = model 
         if self.model_type == 'conv1d':
-            self.model = SpectrogramCNN1D()
+            self.model = SpectrogramCNN1D(num_classes=num_classes)
         elif self.model_type == 'conv2d':
-            self.model = SpectrogramCNN2D()
+            self.model = SpectrogramCNN2D(num_classes=num_classes)
             
         
     def preprocess_input(self,x):
