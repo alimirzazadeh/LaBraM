@@ -19,6 +19,185 @@ add metrics (same as paper) and create training script
 compare and modify the model architectures 
 
 """
+import torch
+import torch.nn as nn
+
+
+def conv3x3(in_planes, out_planes, stride=(1, 1)):
+    """3x3 conv with padding, stride can be (sh, sw)."""
+    return nn.Conv2d(
+        in_planes, out_planes,
+        kernel_size=3,
+        stride=stride,
+        padding=1,
+        bias=False
+    )
+
+
+def conv1x1(in_planes, out_planes, stride=(1, 1)):
+    """1x1 conv for skip/projection."""
+    return nn.Conv2d(
+        in_planes, out_planes,
+        kernel_size=1,
+        stride=stride,
+        bias=False
+    )
+
+
+class BasicBlock(nn.Module):
+    expansion = 1
+
+    def __init__(self, inplanes, planes, stride=(1, 1), downsample=None):
+        super().__init__()
+        self.conv1 = conv3x3(inplanes, planes, stride=stride)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = conv3x3(planes, planes, stride=(1, 1))
+        self.bn2 = nn.BatchNorm2d(planes)
+        self.downsample = downsample
+
+    def forward(self, x):
+        identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+
+        if self.downsample is not None:
+            identity = self.downsample(x)
+
+        out = out + identity
+        out = self.relu(out)
+        return out
+
+
+class CustomResNet18(nn.Module):
+    """
+    Input:  x of shape [B, 23, 160, 6]  (C=23, H=160, W=6)
+
+    Pipeline:
+      1) Conv1d (kernel=7, stride=2, padding=3) along height
+      2) MaxPool1d (kernel=3, stride=2, padding=1) along height
+         -> H: 160 -> 80 -> 40, W: 6 unchanged
+      3) 4 ResNet-18-style 2D layers, downsampling both H and W:
+         - layer1: stride (1, 2)   : H=40, W=6 -> 40 x 3
+         - layer2: stride (2, 2)   : H=40->20, W=3->2
+         - layer3: stride (2, 2)   : H=20->10, W=2->1
+         - layer4: stride (2, 1)   : H=10->5,  W=1
+      4) Output features: [B, 512, 5, 1]
+    """
+
+    def __init__(self, num_classes=None):
+        super().__init__()
+
+        # -------- 1D stem along height --------
+        self.conv1d = nn.Conv1d(
+            in_channels=23,
+            out_channels=64,
+            kernel_size=7,
+            stride=2,
+            padding=3,
+            bias=False,
+        )
+        self.bn1d = nn.BatchNorm1d(64)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool1d = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
+
+        # After this stem, height: 160 -> 80 -> 40, channels=64, width=6
+
+        # -------- ResNet-18 body (2D) --------
+        self.inplanes = 64
+
+        # layer1: 64 channels, no height downsample, width /2 : 40x6 -> 40x3
+        self.layer1 = self._make_layer(64, blocks=2, stride_h=1, stride_w=2)
+
+        # layer2: 128 channels, H /2, W /2 : 40x3 -> 20x2
+        self.layer2 = self._make_layer(128, blocks=2, stride_h=2, stride_w=2)
+
+        # layer3: 256 channels, H /2, W /2 : 20x2 -> 10x1
+        self.layer3 = self._make_layer(256, blocks=2, stride_h=2, stride_w=2)
+
+        # layer4: 512 channels, H /2, W same: 10x1 -> 5x1
+        self.layer4 = self._make_layer(512, blocks=2, stride_h=2, stride_w=1)
+
+        # No final spatial pooling, so forward_features returns [B, 512, 5, 1]
+        self.num_classes = num_classes
+        if num_classes is not None:
+            # Flatten 512*5*1 -> num_classes
+            self.fc = nn.Linear(512 * 5 * 1, num_classes)
+
+    def _make_layer(self, planes, blocks, stride_h, stride_w):
+        """Create one ResNet-18 stage with arbitrary (stride_h, stride_w)."""
+        stride = (stride_h, stride_w)
+        downsample = None
+
+        if stride_h != 1 or stride_w != 1 or self.inplanes != planes * BasicBlock.expansion:
+            downsample = nn.Sequential(
+                conv1x1(self.inplanes, planes * BasicBlock.expansion, stride=stride),
+                nn.BatchNorm2d(planes * BasicBlock.expansion),
+            )
+
+        layers = []
+        layers.append(
+            BasicBlock(
+                inplanes=self.inplanes,
+                planes=planes,
+                stride=stride,
+                downsample=downsample,
+            )
+        )
+        self.inplanes = planes * BasicBlock.expansion
+
+        for _ in range(1, blocks):
+            layers.append(BasicBlock(self.inplanes, planes))
+
+        return nn.Sequential(*layers)
+
+    def forward_features(self, x):
+        """
+        x: [B, 23, 160, 6]
+        -> [B, 512, 5, 1]
+        """
+        x = torch.moveaxis(x, 1, 3)
+        B, C, H, W = x.shape
+        assert C == 23 and H == 160 and W == 6, "Expected [B, 23, 160, 6]"
+
+        # ---- 1D stem over height ----
+        # Treat each width position as a separate 1D sequence over height.
+        # [B, 23, 160, 6] -> [B, 6, 23, 160] -> [B*6, 23, 160]
+        x = x.permute(0, 3, 1, 2).reshape(B * W, C, H)
+
+        x = self.conv1d(x)     # [B*6, 64, 80]
+        x = self.bn1d(x)
+        x = self.relu(x)
+        x = self.maxpool1d(x)  # [B*6, 64, 40]
+
+        # Reshape to 2D feature map: [B, 64, H=40, W=6]
+        _, C1, H1 = x.shape
+        x = x.view(B, W, C1, H1).permute(0, 2, 3, 1)  # [B, 64, 40, 6]
+
+        # ---- 2D ResNet-18 body ----
+        x = self.layer1(x)  # [B, 64, 40, 3]
+        x = self.layer2(x)  # [B, 128, 20, 2]
+        x = self.layer3(x)  # [B, 256, 10, 1]
+        x = self.layer4(x)  # [B, 512,  5, 1]
+
+        return x  # [B, 512, 5, 1]
+
+    def forward(self, x):
+        x = self.forward_features(x)  # [B, 512, 5, 1]
+
+        if self.num_classes is None:
+            return x
+
+        x = torch.flatten(x, 1)      # [B, 512*5*1]
+        x = self.fc(x)               # [B, num_classes]
+        return x
+
+
 
 class SpectrogramCNN1D(nn.Module):
     """
@@ -216,7 +395,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         self.window_length=5
         self.stride_length=1
         self.min_freq = 0
-        self.max_freq = 30 
+        self.max_freq = 32
         self.fs=200
         self.spec_transform = SpectrogramTransform(
                 fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
@@ -242,7 +421,8 @@ class SpectrogramCNN(nn.Module):
             self.model = SpectrogramCNN1D(num_classes=num_classes)
         elif self.model_type == 'conv2d':
             self.model = SpectrogramCNN2D(num_classes=num_classes)
-            
+        elif self.model_type == 'resnet':
+            self.model = CustomResNet18(num_classes=num_classes)
         
     def preprocess_input(self,x):
         return self.spec_transform(x)

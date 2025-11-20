@@ -205,7 +205,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--num_classes', type=int, default=6)
-    parser.add_argument('--model_type', type=str, default='conv1d', choices=['conv1d', 'conv2d'])
+    parser.add_argument('--model_type', type=str, default='conv1d', choices=['conv1d', 'conv2d', 'resnet'])
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--lr', type=float, default=1e-3)
