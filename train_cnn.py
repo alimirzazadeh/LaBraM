@@ -174,7 +174,7 @@ def main(args):
     epochs = args.epochs
     model_type = args.model_type
     num_classes = args.num_classes
-    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}'
+    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing'
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(log_dir=f'/data/scratch/alimirz/2025/EEG_FM/TUEV/{exp_name}')
     trainset = TUABBaselineDataset(mode='train')
@@ -188,6 +188,7 @@ def main(args):
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
     loss_fn = nn.CrossEntropyLoss()
     metrics = MulticlassMetrics(num_classes=num_classes, device=device)
 
@@ -197,8 +198,11 @@ def main(args):
         test_loss, test_results = validate_epoch(model, test_loader, loss_fn, device, metrics)
         logger(writer, test_results, 'test', epoch)
         train_loss, train_results = train_epoch(model, train_loader, optimizer, loss_fn, device, metrics)
+        # Get current learning rate and add to metrics
+        current_lr = optimizer.param_groups[0]['lr']
+        train_results['lr'] = current_lr
         logger(writer, train_results, 'train', epoch)
-        
+        scheduler.step()
         print(f"Epoch {epoch+1}/{epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
 if __name__ == "__main__":
