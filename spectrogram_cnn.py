@@ -386,6 +386,32 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
     def __init__(self, mode='train'):
         assert mode in ['train','val','test']
         self.mode = mode
+        self.root = '/data/netmit/sleep_lab/EEG_FM/TUAB/data/v3.0.1/edf/processed/' + self.mode
+        self.files = os.listdir(self.root)
+        self.files = [f for f in self.files if f.endswith('.pkl')]
+        self.resolution=0.2
+        self.window_length=5
+        self.stride_length=1
+        self.min_freq = 0
+        self.max_freq = 32
+        self.fs=200
+        self.spec_transform = SpectrogramTransform(
+                fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
+                pad=self.fs * self.window_length // 2, min_freq=self.min_freq, max_freq=self.max_freq)
+    def __len__(self):
+        return len(self.files)
+    def __getitem__(self, index):
+        sample = pickle.load(open(os.path.join(self.root, self.files[index]), "rb"))
+        X = sample["signal"]
+        Y = int(sample["label"][0] - 1)
+        X = torch.from_numpy(X).float()
+        X = self.spec_transform(X.T)
+        return X, Y
+
+class TUEVBaselineDataset(torch.utils.data.Dataset):
+    def __init__(self, mode='train'):
+        assert mode in ['train','val','test']
+        self.mode = mode
         if self.mode == 'val':
             self.mode = 'eval'
         self.root = '/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf/processed/processed_' + self.mode
