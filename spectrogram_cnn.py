@@ -466,11 +466,11 @@ class SpectrogramCNN(nn.Module):
         return x 
     
 if __name__ == "__main__":
-    trainset = TUABBaselineDataset(mode='train', window_length=5, resolution=0.2)
+    trainset = TUEVBaselineDataset(mode='train', window_length=5, resolution=0.2)
     aa = trainset[0]
     trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
-    model = SpectrogramCNN(model='conv1d')
-    model2 = SpectrogramCNN(model='conv2d')
+    model = SpectrogramCNN(model='conv1d', num_classes=6)
+    model2 = SpectrogramCNN(model='conv2d', num_classes=6)
     for X, Y in trainloader:
         bp() 
         output = model(X)
