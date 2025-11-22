@@ -93,9 +93,9 @@ class CustomResNet18(nn.Module):
     def __init__(self, num_classes=None, dataset='TUAB'):
         super().__init__()
         if dataset == 'TUAB':
-            self.data_length = 5
+            self.data_length = 10
         elif dataset == 'TUEV':
-            self.data_length = 3
+            self.data_length = 5
         else:
             raise ValueError(f"Invalid dataset: {dataset}")
         # -------- 1D stem along height --------
