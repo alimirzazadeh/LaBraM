@@ -163,7 +163,7 @@ class CustomResNet18(nn.Module):
         """
         x = torch.moveaxis(x, 1, 3)
         B, C, H, W = x.shape
-        assert C == 23 and H == 160 and W == 6, "Expected [B, 23, 160, 6], got [B, %d, %d, %d]" % (C, H, W)
+        #assert C == 23 and H == 160 and W == 6, "Expected [B, 23, 160, 6], got [B, %d, %d, %d]" % (C, H, W)
 
         # ---- 1D stem over height ----
         # Treat each width position as a separate 1D sequence over height.
@@ -426,13 +426,13 @@ class TUEVBaselineDataset(torch.utils.data.Dataset):
         self.fs=200
         self.spec_transform = SpectrogramTransform(
                 fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
-                pad=self.fs * self.window_length // 2, min_freq=self.min_freq, max_freq=self.max_freq)
+                min_freq=self.min_freq, max_freq=self.max_freq) #pad=self.fs * self.window_length // 2, 
         self.spec_transform2 = SpectrogramTransform(
                 fs=self.fs, resolution=self.resolution, win_length=self.fs * 3, hop_length=self.fs * self.stride_length, 
-                pad=self.fs * 3 // 2, min_freq=self.min_freq, max_freq=self.max_freq)
+                min_freq=self.min_freq, max_freq=self.max_freq) #pad=self.fs * 3 // 2, 
         self.spec_transform3 = SpectrogramTransform(
                 fs=self.fs, resolution=self.resolution, win_length=self.fs * 1, hop_length=self.fs * self.stride_length, 
-                pad=self.fs * 1 // 2, min_freq=self.min_freq, max_freq=self.max_freq)
+                min_freq=self.min_freq, max_freq=self.max_freq) #pad=self.fs * 1 // 2, 
     def __len__(self):
         return len(self.files)
     def __getitem__(self, index):
