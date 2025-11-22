@@ -427,12 +427,6 @@ class TUEVBaselineDataset(torch.utils.data.Dataset):
         self.spec_transform = SpectrogramTransform(
                 fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
                 min_freq=self.min_freq, max_freq=self.max_freq) #pad=self.fs * self.window_length // 2, 
-        self.spec_transform2 = SpectrogramTransform(
-                fs=self.fs, resolution=self.resolution, win_length=self.fs * 3, hop_length=self.fs * self.stride_length, 
-                min_freq=self.min_freq, max_freq=self.max_freq) #pad=self.fs * 3 // 2, 
-        self.spec_transform3 = SpectrogramTransform(
-                fs=self.fs, resolution=self.resolution, win_length=self.fs * 1, hop_length=self.fs * self.stride_length, 
-                min_freq=self.min_freq, max_freq=self.max_freq) #pad=self.fs * 1 // 2, 
     def __len__(self):
         return len(self.files)
     def __getitem__(self, index):
@@ -440,7 +434,6 @@ class TUEVBaselineDataset(torch.utils.data.Dataset):
         X = sample["signal"]
         Y = int(sample["label"][0] - 1)
         X = torch.from_numpy(X).float()
-        bp() 
         X = self.spec_transform(X.T)
         return X, Y
 
