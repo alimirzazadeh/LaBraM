@@ -163,7 +163,7 @@ class CustomResNet18(nn.Module):
         """
         x = torch.moveaxis(x, 1, 3)
         B, C, H, W = x.shape
-        assert C == 23 and H == 160 and W == 6, "Expected [B, 23, 160, 6]"
+        assert C == 23 and H == 160 and W == 6, "Expected [B, 23, 160, 6], got [B, %d, %d, %d]" % (C, H, W)
 
         # ---- 1D stem over height ----
         # Treat each width position as a separate 1D sequence over height.
