@@ -90,9 +90,14 @@ class CustomResNet18(nn.Module):
       4) Output features: [B, 512, 5, 1]
     """
 
-    def __init__(self, num_classes=None):
+    def __init__(self, num_classes=None, dataset='TUAB'):
         super().__init__()
-
+        if dataset == 'TUAB':
+            self.data_length = 5
+        elif dataset == 'TUEV':
+            self.data_length = 3
+        else:
+            raise ValueError(f"Invalid dataset: {dataset}")
         # -------- 1D stem along height --------
         self.conv1d = nn.Conv1d(
             in_channels=23,
@@ -127,7 +132,7 @@ class CustomResNet18(nn.Module):
         self.num_classes = num_classes
         if num_classes is not None:
             # Flatten 512*5*1 -> num_classes
-            self.fc = nn.Linear(512 * 5 * 1, num_classes)
+            self.fc = nn.Linear(512 * self.data_length * 1, num_classes)
 
     def _make_layer(self, planes, blocks, stride_h, stride_w):
         """Create one ResNet-18 stage with arbitrary (stride_h, stride_w)."""
@@ -438,7 +443,7 @@ class TUEVBaselineDataset(torch.utils.data.Dataset):
         return X, Y
 
 class SpectrogramCNN(nn.Module):
-    def __init__(self, model='conv1d', num_classes=6) -> None:
+    def __init__(self, model='conv1d', num_classes=6, dataset='TUAB') -> None:
         super().__init__()
         assert model in ['conv1d','conv2d','resnet']
         
@@ -449,7 +454,7 @@ class SpectrogramCNN(nn.Module):
         elif self.model_type == 'conv2d':
             self.model = SpectrogramCNN2D(num_classes=num_classes)
         elif self.model_type == 'resnet':
-            self.model = CustomResNet18(num_classes=num_classes)
+            self.model = CustomResNet18(num_classes=num_classes, dataset=dataset)
         
     def preprocess_input(self,x):
         return self.spec_transform(x)

@@ -195,7 +195,7 @@ def main(args):
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    model = SpectrogramCNN(model=model_type, num_classes=num_classes)
+    model = SpectrogramCNN(model=model_type, num_classes=num_classes, dataset=args.dataset)
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
