@@ -176,7 +176,7 @@ def main(args):
     num_classes = args.num_classes
     window_length = args.window_length
     resolution = args.resolution
-    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}'
+    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}_window_{window_length}_resolution_{resolution}'
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(log_dir=f'/data/scratch/alimirz/2025/EEG_FM/TUEV/{exp_name}')
     if args.dataset == 'TUAB':
