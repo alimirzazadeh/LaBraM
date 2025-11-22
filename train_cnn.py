@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
-from spectrogram_cnn import TUABBaselineDataset, SpectrogramCNN
+from spectrogram_cnn import TUABBaselineDataset, SpectrogramCNN, TUEVBaselineDataset
 import torchmetrics
 from tqdm import tqdm
 from ipdb import set_trace as bp
@@ -174,12 +174,19 @@ def main(args):
     epochs = args.epochs
     model_type = args.model_type
     num_classes = args.num_classes
-    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_TUAB'
+    window_length = args.window_length
+    resolution = args.resolution
+    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}'
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(log_dir=f'/data/scratch/alimirz/2025/EEG_FM/TUEV/{exp_name}')
-    trainset = TUABBaselineDataset(mode='train')
-    valset = TUABBaselineDataset(mode='val')
-    testset = TUABBaselineDataset(mode='test')
+    if args.dataset == 'TUAB':
+        trainset = TUABBaselineDataset(mode='train', window_length=window_length, resolution=resolution)
+        valset = TUABBaselineDataset(mode='val', window_length=window_length, resolution=resolution)
+        testset = TUABBaselineDataset(mode='test', window_length=window_length, resolution=resolution)
+    elif args.dataset == 'TUEV':
+        trainset = TUEVBaselineDataset(mode='train', window_length=window_length, resolution=resolution)
+        valset = TUEVBaselineDataset(mode='val', window_length=window_length, resolution=resolution)
+        testset = TUEVBaselineDataset(mode='test', window_length=window_length, resolution=resolution)
 
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
@@ -208,11 +215,14 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
+    parser.add_argument('--dataset', type=str, default='TUEV', choices=['TUAB', 'TUEV'])
     parser.add_argument('--num_classes', type=int, default=6)
     parser.add_argument('--model_type', type=str, default='conv1d', choices=['conv1d', 'conv2d', 'resnet'])
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--epochs', type=int, default=10)
+    parser.add_argument('--window_length', type=int, default=5)
+    parser.add_argument('--resolution', type=float, default=0.2)
     args = parser.parse_args()
     main(args)
