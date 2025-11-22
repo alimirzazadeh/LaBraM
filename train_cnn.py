@@ -173,6 +173,10 @@ def main(args):
     lr = args.lr
     epochs = args.epochs
     model_type = args.model_type
+    if args.dataset == 'TUAB':
+        args.num_classes = 1
+    elif args.dataset == 'TUEV':
+        args.num_classes = 6
     num_classes = args.num_classes
     window_length = args.window_length
     resolution = args.resolution
@@ -216,7 +220,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--dataset', type=str, default='TUEV', choices=['TUAB', 'TUEV'])
-    parser.add_argument('--num_classes', type=int, default=6)
+    # parser.add_argument('--num_classes', type=int, default=6)
     parser.add_argument('--model_type', type=str, default='conv1d', choices=['conv1d', 'conv2d', 'resnet'])
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=4)

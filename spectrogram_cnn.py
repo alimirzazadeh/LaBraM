@@ -402,9 +402,9 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         return len(self.files)
     def __getitem__(self, index):
         sample = pickle.load(open(os.path.join(self.root, self.files[index]), "rb"))
-        bp() 
-        X = sample["signal"]
-        Y = int(sample["label"][0] - 1)
+        
+        X = sample["X"]
+        Y = int(sample["y"][0])
         X = torch.from_numpy(X).float()
         X = self.spec_transform(X.T)
         return X, Y
