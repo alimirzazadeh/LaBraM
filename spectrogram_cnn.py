@@ -347,7 +347,7 @@ class SpectrogramCNN2D(nn.Module):
 
 
 class SpectrogramTransform:
-    def __init__(self, fs=200, resolution=0.1, win_length=1000, hop_length=1000, pad=0, min_freq=0, max_freq=32):
+    def __init__(self, fs=200, resolution=0.1, win_length=1000, hop_length=1000, pad=0, min_freq=0, max_freq=32, resolution_factor=1):
         n_fft = int(fs / resolution)
         self.fs = fs
         self.resolution = resolution
@@ -356,7 +356,7 @@ class SpectrogramTransform:
         self.pad = pad
         self.min_freq = min_freq
         self.max_freq = max_freq
-        
+        self.resolution_factor = resolution_factor
         
         self.spec = Spectrogram(n_fft=n_fft, win_length=win_length, hop_length=hop_length, pad=pad, power=2, center=True)
         self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
@@ -375,6 +375,12 @@ class SpectrogramTransform:
         ## take the log
         spec = torch.log(spec + 1)
         spec = spec[:,self.freq_mask,:]
+        if self.resolution_factor > 1:
+            old_shape = spec.shape
+            mag_bands = spec.view(spec.size(0), spec.size(1) // self.resolution_factor, self.resolution_factor, spec.size(2)).mean(dim=2)
+            new_shape = mag_bands.shape
+            print(f"Old shape: {old_shape}, New shape: {new_shape}")
+            return mag_bands
         return spec
     
     def __repr__(self):

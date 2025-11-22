@@ -227,6 +227,7 @@ if __name__ == "__main__":
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--window_length', type=int, default=5)
-    parser.add_argument('--resolution', type=float, default=0.2)
+    parser.add_argument('--resolution_factor', type=int, default=1)
     args = parser.parse_args()
+    args.resolution = 0.2
     main(args)
