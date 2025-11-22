@@ -404,7 +404,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         sample = pickle.load(open(os.path.join(self.root, self.files[index]), "rb"))
         
         X = sample["X"]
-        Y = int(sample["y"][0])
+        Y = int(sample["y"])
         X = torch.from_numpy(X).float()
         X = self.spec_transform(X.T)
         return X, Y
