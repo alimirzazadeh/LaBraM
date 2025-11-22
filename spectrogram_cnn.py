@@ -353,7 +353,7 @@ class SpectrogramTransform:
         self.max_freq = max_freq
         
         
-        self.spec = Spectrogram(n_fft=n_fft, win_length=win_length, hop_length=hop_length, pad=pad, power=2, center=False)
+        self.spec = Spectrogram(n_fft=n_fft, win_length=win_length, hop_length=hop_length, pad=pad, power=2, center=True)
         self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
         self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs < self.max_freq)
     
