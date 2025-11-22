@@ -174,7 +174,7 @@ def main(args):
     epochs = args.epochs
     model_type = args.model_type
     if args.dataset == 'TUAB':
-        args.num_classes = 1
+        args.num_classes = 2
     elif args.dataset == 'TUEV':
         args.num_classes = 6
     num_classes = args.num_classes
