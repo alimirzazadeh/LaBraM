@@ -187,7 +187,7 @@ def main(args):
     num_classes = args.num_classes
     window_length = args.window_length
     resolution = args.resolution
-    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}_window_{window_length}_resolution_{resolution}_resolutionfactor_{args.resolution_factor}'
+    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}_window_{window_length}_resolution_{resolution}_resolutionfactor_{args.resolution_factor}_stride_{args.stride_length}'
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(log_dir=f'/data/scratch/alimirz/2025/EEG_FM/TUEV/{exp_name}')
     if args.dataset == 'TUAB':
@@ -195,7 +195,7 @@ def main(args):
         valset = TUABBaselineDataset(mode='val', window_length=window_length, resolution=resolution)
         testset = TUABBaselineDataset(mode='test', window_length=window_length, resolution=resolution)
     elif args.dataset == 'TUEV':
-        trainset = TUEVBaselineDataset(mode='train', window_length=window_length, resolution=resolution)
+        trainset = TUEVBaselineDataset(mode='train', window_length=window_length, resolution=resolution, stride_length=args.stride_length)
         valset = TUEVBaselineDataset(mode='val', window_length=window_length, resolution=resolution)
         testset = TUEVBaselineDataset(mode='test', window_length=window_length, resolution=resolution)
 
@@ -235,6 +235,7 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--window_length', type=int, default=5)
     parser.add_argument('--resolution_factor', type=int, default=1)
+    parser.add_argument('--stride_length', type=int, default=1)
     args = parser.parse_args()
     args.resolution = 0.2
     main(args)

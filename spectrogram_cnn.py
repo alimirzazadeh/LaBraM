@@ -421,7 +421,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         return X, Y
 
 class TUEVBaselineDataset(torch.utils.data.Dataset):
-    def __init__(self, mode='train', window_length=5, resolution=0.2):
+    def __init__(self, mode='train', window_length=5, resolution=0.2, stride_length=1):
         assert mode in ['train','val','test']
         self.mode = mode
         if self.mode == 'val':
@@ -431,7 +431,7 @@ class TUEVBaselineDataset(torch.utils.data.Dataset):
         self.files = [f for f in self.files if f.endswith('.pkl')]
         self.resolution=resolution
         self.window_length=window_length
-        self.stride_length=1
+        self.stride_length=stride_length
         self.min_freq = 0
         self.max_freq = 32
         self.fs=200
