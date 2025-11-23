@@ -56,7 +56,9 @@ class MulticlassMetrics:
             ).to(self.device),
             
             "auprc": torchmetrics.AveragePrecision(
-                num_classes=self.num_classes
+                task="multiclass",
+                num_classes=self.num_classes,
+                average='macro'
             ).to(self.device),
         }
     
