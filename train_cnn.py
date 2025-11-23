@@ -54,6 +54,12 @@ class MulticlassMetrics:
                 num_classes=self.num_classes,
                 average='macro'
             ).to(self.device),
+            
+            "auprc": torchmetrics.AUPRC(
+                task="multiclass",
+                num_classes=self.num_classes,
+                average='macro'
+            ).to(self.device),
         }
     
     def update(self, predictions, labels):
@@ -76,7 +82,7 @@ class MulticlassMetrics:
         self.metrics_dict["kappa"].update(pred_classes, labels)
         self.metrics_dict["f1_weighted"].update(pred_classes, labels)
         self.metrics_dict["auroc"].update(predictions, labels)
-    
+        self.metrics_dict["auprc"].update(predictions, labels)
     def compute(self, loss=None):
         """
         Compute all metrics and return as dictionary.
@@ -92,6 +98,7 @@ class MulticlassMetrics:
             "cohens_kappa": self.metrics_dict["kappa"].compute().item(),
             "weighted_f1": self.metrics_dict["f1_weighted"].compute().item(),
             "auroc": self.metrics_dict["auroc"].compute().item(),
+            "auprc": self.metrics_dict["auprc"].compute().item(),
         }
         
         if loss is not None:
