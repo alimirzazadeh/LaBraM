@@ -880,11 +880,189 @@ def validate_multitaper_against_mne(
     }
 
 
+def compare_compute_times(
+    win_length: int = 1000,
+    fs: float = 200.0,
+    n_channels: int = 23,
+    n_iterations: int = 100,
+    resolution: float = 0.2,
+    min_freq: float = 0.0,
+    max_freq: float = 32.0,
+    NW: float = 3.5,
+):
+    """
+    Compare compute times between different spectrogram methods.
+    
+    Args:
+        win_length: Length of signal window in samples
+        fs: Sampling frequency (Hz)
+        n_channels: Number of channels (EEG channels)
+        n_iterations: Number of iterations for timing (more = more accurate)
+        resolution: Frequency resolution (Hz)
+        min_freq: Minimum frequency to keep
+        max_freq: Maximum frequency to keep
+        NW: Time-bandwidth product for multitaper
+    
+    Returns:
+        Dictionary with timing results for each method
+    """
+    # Create test signal
+    rng = np.random.default_rng(42)
+    x_np = rng.standard_normal((n_channels, win_length)).astype(np.float32)  # (C, T)
+    x_torch = torch.from_numpy(x_np)  # (C, T)
+    x_torch_2d = x_torch.T  # (T, C) for multitaper multi-channel
+    
+    # Initialize transforms
+    spec_transform = SpectrogramTransform(
+        fs=fs,
+        resolution=resolution,
+        win_length=win_length,
+        hop_length=win_length,
+        pad=0,
+        min_freq=min_freq,
+        max_freq=max_freq,
+        resolution_factor=1,
+    )
+    
+    welch_transform = WelchSpectrogramTransform(
+        fs=fs,
+        resolution=resolution,
+        win_length=win_length,
+        hop_length=win_length,
+        pad=0,
+        min_freq=min_freq,
+        max_freq=max_freq,
+        resolution_factor=1,
+    )
+    
+    mt_transform = MultitaperSpectrogramTransform(
+        fs=fs,
+        resolution=resolution,
+        win_length=win_length,
+        hop_length=win_length,
+        pad=0,
+        min_freq=min_freq,
+        max_freq=max_freq,
+        resolution_factor=1,
+        NW=NW,
+        K=None,
+        center=False,
+    )
+    
+    # MNE settings
+    n_fft = int(fs / resolution)
+    n_per_seg = win_length
+    bandwidth_hz = NW * fs / win_length
+    
+    results = {}
+    
+    # 1. SpectrogramTransform (our custom)
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    torch.manual_seed(42)
+    start = time.perf_counter()
+    for _ in range(n_iterations):
+        _ = spec_transform(x_torch)
+    end = time.perf_counter()
+    results['SpectrogramTransform'] = (end - start) / n_iterations
+    
+    # 2. WelchSpectrogramTransform (our custom)
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    torch.manual_seed(42)
+    start = time.perf_counter()
+    for _ in range(n_iterations):
+        _ = welch_transform(x_torch)
+    end = time.perf_counter()
+    results['WelchSpectrogramTransform'] = (end - start) / n_iterations
+    
+    # 3. MultitaperSpectrogramTransform (our custom) - all channels
+    torch.cuda.empty_cache() if torch.cuda.is_available() else None
+    torch.manual_seed(42)
+    start = time.perf_counter()
+    for _ in range(n_iterations):
+        _ = mt_transform(x_torch_2d)  # (T, C)
+    end = time.perf_counter()
+    results['MultitaperSpectrogramTransform'] = (end - start) / n_iterations
+    
+    # 4. MNE Welch
+    start = time.perf_counter()
+    for _ in range(n_iterations):
+        _, _ = psd_array_welch(
+            x_np,  # (n_channels, n_times)
+            sfreq=fs,
+            fmin=min_freq,
+            fmax=max_freq,
+            n_fft=n_fft,
+            n_per_seg=n_per_seg,
+            n_overlap=0,
+            average='mean',
+            window='hann',
+            verbose=False,
+        )
+    end = time.perf_counter()
+    results['MNE_Welch'] = (end - start) / n_iterations
+    
+    # 5. MNE Multitaper
+    start = time.perf_counter()
+    for _ in range(n_iterations):
+        _, _ = psd_array_multitaper(
+            x_np,  # (n_channels, n_times)
+            sfreq=fs,
+            fmin=min_freq,
+            fmax=max_freq,
+            bandwidth=bandwidth_hz,
+            adaptive=False,
+            low_bias=True,
+            normalization="full",
+            verbose=False,
+        )
+    end = time.perf_counter()
+    results['MNE_Multitaper'] = (end - start) / n_iterations
+    
+    # Print results
+    print("\n" + "="*60)
+    print("Compute Time Comparison (seconds per call)")
+    print("="*60)
+    print(f"Signal shape: ({n_channels}, {win_length})")
+    print(f"Frequency range: [{min_freq}, {max_freq}] Hz")
+    print(f"Resolution: {resolution} Hz")
+    print(f"Iterations: {n_iterations}")
+    print("-"*60)
+    
+    # Sort by time
+    sorted_results = sorted(results.items(), key=lambda x: x[1])
+    for method, time_per_call in sorted_results:
+        print(f"{method:35s}: {time_per_call*1000:8.3f} ms")
+    
+    print("-"*60)
+    baseline_time = sorted_results[0][1]
+    print(f"\nSpeedup relative to fastest ({sorted_results[0][0]}):")
+    for method, time_per_call in sorted_results:
+        speedup = time_per_call / baseline_time
+        print(f"{method:35s}: {speedup:8.2f}x")
+    
+    print("="*60 + "\n")
+    
+    return results
+
+
 if __name__ == "__main__":
     multitaper_results = validate_multitaper_against_mne()
     welch_results = validate_welch_against_mne()
     print(welch_results)
     print(multitaper_results)
+    
+    # Compare compute times
+    timing_results = compare_compute_times(
+        win_length=1000,
+        fs=200.0,
+        n_channels=23,
+        n_iterations=100,
+        resolution=0.2,
+        min_freq=0.0,
+        max_freq=32.0,
+        NW=3.5,
+    )
+    
     bp() 
     # trainset = TUEVBaselineDataset(mode='train', window_length=5, resolution=0.2)
     # aa = trainset[0]
