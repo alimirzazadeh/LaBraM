@@ -14,6 +14,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pickle
 from mne.time_frequency import psd_array_multitaper, psd_array_welch
+import time
 
 """ 
 To do: reorder the channels to make sense for the conv2d model 
@@ -463,7 +464,7 @@ class MultitaperSpectrogramTransform:
         if K is None:
             K = int(2 * NW - 1)
         tapers_np = dpss(win_length, NW, Kmax=K)  # (K, win_length)
-        tapers = torch.tensor(tapers_np, dtype=torch.float32)  # store on CPU
+        tapers = torch.tensor(tapers_np.copy(), dtype=torch.float32)  # store on CPU
         self.K = tapers.shape[0]
         self._tapers = tapers  # (K, win_length)
 
