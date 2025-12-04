@@ -366,7 +366,7 @@ class WelchSpectrogramTransform:
         self.spec = Spectrogram(n_fft=n_fft, win_length=win_length, hop_length=win_length, pad=0, power=2, center=False)
         
         self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
-        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs < self.max_freq)
+        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs <= self.max_freq)
     
     def __call__(self, data):
         """
@@ -498,7 +498,7 @@ class MultitaperSpectrogramTransform:
 
         # --- Frequency axis + mask (same as your class) ---
         self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
-        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs < self.max_freq)
+        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs <= self.max_freq)
 
     def __call__(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -572,7 +572,7 @@ class SpectrogramTransform:
         
         self.spec = Spectrogram(n_fft=n_fft, win_length=win_length, hop_length=hop_length, pad=pad, power=2, center=True)
         self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
-        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs < self.max_freq)
+        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs <= self.max_freq)
     
     def __call__(self, data):
         """
