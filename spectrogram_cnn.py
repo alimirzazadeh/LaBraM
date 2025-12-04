@@ -926,8 +926,9 @@ def compare_compute_times(
     freq_mask_timing = (freqs_timing >= min_freq) & (freqs_timing <= max_freq)
     
     # Create a simple wrapper function for timing (mimics SpectrogramTransform but with center=False)
+    # Note: torchaudio Spectrogram expects (channels, time), and data is already (channels, time)
     def spec_transform_timing(data):
-        spec = spec_timing(data.T)
+        spec = spec_timing(data)  # data is (channels, time), no transpose needed
         spec = torch.log(spec + 1)
         spec = spec[:, freq_mask_timing, :]
         return spec
