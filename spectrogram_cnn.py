@@ -906,11 +906,21 @@ def compare_compute_times(
     Returns:
         Dictionary with timing results for each method
     """
+    # Calculate n_fft for signal length calculation
+    n_fft = int(fs / resolution)
+    
     # Create test signal
+    # Use longer signal for SpectrogramTransform which uses center=True and needs padding
+    # Padding can be up to win_length//2 on each side, so we need at least win_length * 2
+    signal_length = max(win_length * 3, win_length + n_fft)
     rng = np.random.default_rng(42)
-    x_np = rng.standard_normal((n_channels, win_length)).astype(np.float32)  # (C, T)
+    x_np = rng.standard_normal((n_channels, signal_length)).astype(np.float32)  # (C, T)
     x_torch = torch.from_numpy(x_np)  # (C, T)
     x_torch_2d = x_torch.T  # (T, C) for multitaper multi-channel
+    
+    # For methods that need exactly win_length, use the first win_length samples
+    x_np_win = x_np[:, :win_length]  # (C, win_length)
+    x_torch_win = x_torch[:, :win_length]  # (C, win_length)
     
     # Initialize transforms
     spec_transform = SpectrogramTransform(
@@ -949,45 +959,46 @@ def compare_compute_times(
         center=False,
     )
     
-    # MNE settings
-    n_fft = int(fs / resolution)
+    # MNE settings (n_fft already calculated above)
     n_per_seg = win_length
     bandwidth_hz = NW * fs / win_length
     
     results = {}
     
-    # 1. SpectrogramTransform (our custom)
+    # 1. SpectrogramTransform (our custom) - uses longer signal for padding
     torch.cuda.empty_cache() if torch.cuda.is_available() else None
     torch.manual_seed(42)
     start = time.perf_counter()
     for _ in range(n_iterations):
-        _ = spec_transform(x_torch)
+        _ = spec_transform(x_torch)  # Uses full signal (can handle padding)
     end = time.perf_counter()
     results['SpectrogramTransform'] = (end - start) / n_iterations
     
-    # 2. WelchSpectrogramTransform (our custom)
+    # 2. WelchSpectrogramTransform (our custom) - uses win_length segment
     torch.cuda.empty_cache() if torch.cuda.is_available() else None
     torch.manual_seed(42)
     start = time.perf_counter()
     for _ in range(n_iterations):
-        _ = welch_transform(x_torch)
+        _ = welch_transform(x_torch_win)  # Uses win_length segment
     end = time.perf_counter()
     results['WelchSpectrogramTransform'] = (end - start) / n_iterations
     
-    # 3. MultitaperSpectrogramTransform (our custom) - all channels
+    # 3. MultitaperSpectrogramTransform (our custom) - uses win_length segment
     torch.cuda.empty_cache() if torch.cuda.is_available() else None
     torch.manual_seed(42)
+    # Create win_length segment in (T, C) format
+    x_torch_2d_win = x_torch_win.T  # (win_length, C)
     start = time.perf_counter()
     for _ in range(n_iterations):
-        _ = mt_transform(x_torch_2d)  # (T, C)
+        _ = mt_transform(x_torch_2d_win)  # (T, C) with win_length
     end = time.perf_counter()
     results['MultitaperSpectrogramTransform'] = (end - start) / n_iterations
     
-    # 4. MNE Welch
+    # 4. MNE Welch - uses win_length segment
     start = time.perf_counter()
     for _ in range(n_iterations):
         _, _ = psd_array_welch(
-            x_np,  # (n_channels, n_times)
+            x_np_win,  # (n_channels, win_length)
             sfreq=fs,
             fmin=min_freq,
             fmax=max_freq,
@@ -1001,11 +1012,11 @@ def compare_compute_times(
     end = time.perf_counter()
     results['MNE_Welch'] = (end - start) / n_iterations
     
-    # 5. MNE Multitaper
+    # 5. MNE Multitaper - uses win_length segment
     start = time.perf_counter()
     for _ in range(n_iterations):
         _, _ = psd_array_multitaper(
-            x_np,  # (n_channels, n_times)
+            x_np_win,  # (n_channels, win_length)
             sfreq=fs,
             fmin=min_freq,
             fmax=max_freq,
