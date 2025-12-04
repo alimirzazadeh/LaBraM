@@ -9,9 +9,11 @@ from torchaudio.transforms import Spectrogram
 import torchaudio
 import torchvision.transforms as transforms
 import torch
+from scipy.signal.windows import dpss
 import torch.nn as nn
 import torch.nn.functional as F
 import pickle
+from mne.time_frequency import psd_array_multitaper, psd_array_welch
 
 """ 
 To do: reorder the channels to make sense for the conv2d model 
@@ -19,9 +21,6 @@ add metrics (same as paper) and create training script
 compare and modify the model architectures 
 
 """
-import torch
-import torch.nn as nn
-
 
 def conv3x3(in_planes, out_planes, stride=(1, 1)):
     """3x3 conv with padding, stride can be (sh, sw)."""
@@ -345,6 +344,218 @@ class SpectrogramCNN2D(nn.Module):
         return x
 
 
+import torch
+from torchaudio.transforms import Spectrogram
+
+
+class WelchSpectrogramTransform:
+    def __init__(self, fs=200, resolution=0.1, win_length=1000, hop_length=1000, pad=0, min_freq=0, max_freq=32, resolution_factor=1):
+        n_fft = int(fs / resolution)
+        self.fs = fs
+        self.resolution = resolution
+        self.win_length = win_length
+        self.hop_length = hop_length
+        self.pad = pad
+        self.min_freq = min_freq
+        self.max_freq = max_freq
+        self.resolution_factor = resolution_factor
+        
+        # For Welch method: use non-overlapping segments (noverlap=0)
+        # Each segment is processed independently with the spectrogram
+        self.spec = Spectrogram(n_fft=n_fft, win_length=win_length, hop_length=win_length, pad=0, power=2, center=False)
+        
+        self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
+        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs < self.max_freq)
+    
+    def __call__(self, data):
+        """
+        Args:
+            data (Tensor): Time series data to be transformed (channels, samples)
+        
+        Returns:
+            Tensor: Welch spectrogram (channels, frequencies, time_segments)
+        """
+        n_channels, n_samples = data.shape
+        
+        # Calculate number of segments based on hop_length
+        n_segments = (n_samples - self.win_length) // self.hop_length + 1
+        
+        segment_specs = []
+        
+        # Process each segment separately
+        for i in range(n_segments):
+            start_idx = i * self.hop_length
+            end_idx = start_idx + self.win_length
+            
+            segment = data[:, start_idx:end_idx]
+            
+            # Compute spectrogram for this segment (will have only 1 time bin since hop_length=win_length)
+            spec_segment = self.spec(segment)  # (channels, freqs, 1)
+            segment_specs.append(spec_segment.squeeze(-1))  # (channels, freqs)
+        
+        # Stack all segments along time dimension
+        spec = torch.stack(segment_specs, dim=-1)  # (channels, freqs, n_segments)
+        
+        # Take the log
+        spec = torch.log(spec + 1)
+        
+        # Apply frequency masking
+        spec = spec[:, self.freq_mask, :]
+        
+        # Apply resolution factor if needed
+        if self.resolution_factor > 1:
+            old_shape = spec.shape
+            mag_bands = spec.view(spec.size(0), spec.size(1) // self.resolution_factor, self.resolution_factor, spec.size(2)).mean(dim=2)
+            new_shape = mag_bands.shape
+            print(f"Old shape: {old_shape}, New shape: {new_shape}")
+            return mag_bands
+        
+        return spec
+    
+    def __repr__(self):
+        return f"{self.__class__.__name__}(fs={self.fs}, resolution={self.resolution}, min_freq={self.min_freq}, max_freq={self.max_freq})"
+
+
+class MultitaperSpectrogramTransform:
+    def __init__(
+        self,
+        fs=200,
+        resolution=0.1,
+        win_length=1000,
+        hop_length=1000,
+        pad=0,
+        min_freq=0,
+        max_freq=32,
+        resolution_factor=1,
+        NW=3.5,
+        K=None,
+        center=True,
+    ):
+        """
+        Multitaper spectrogram using DPSS tapers and torchaudio Spectrogram.
+
+        Args:
+            fs: sampling rate (Hz)
+            resolution: frequency resolution (Hz) → n_fft = fs / resolution
+            win_length: STFT window length (samples)
+            hop_length: STFT hop length (samples)
+            pad: STFT padding
+            min_freq, max_freq: keep freqs in [min_freq, max_freq)
+            resolution_factor: optional pooling factor along frequency axis
+            NW: time-bandwidth product for DPSS
+            K: number of tapers; if None, uses K = int(2 * NW - 1)
+            center: passed to torchaudio Spectrogram
+        """
+        n_fft = int(fs / resolution)
+
+        self.fs = fs
+        self.resolution = resolution
+        self.win_length = win_length
+        self.hop_length = hop_length
+        self.pad = pad
+        self.min_freq = min_freq
+        self.max_freq = max_freq
+        self.resolution_factor = resolution_factor
+        self.NW = NW
+        self.center = center
+
+        # --- DPSS tapers (length = win_length) ---
+        if K is None:
+            K = int(2 * NW - 1)
+        tapers_np = dpss(win_length, NW, Kmax=K)  # (K, win_length)
+        tapers = torch.tensor(tapers_np, dtype=torch.float32)  # store on CPU
+        self.K = tapers.shape[0]
+        self._tapers = tapers  # (K, win_length)
+
+        # --- Build a Spectrogram transform per taper ---
+        self.specs = []
+        for k in range(self.K):
+            taper_k = self._tapers[k]
+
+            def make_window_fn(taper):
+                # window_fn signature: (win_length, *, dtype, layout, device, **kwargs)
+                def window_fn(win_length, dtype=None, layout=None, device=None, **kwargs):
+                    t = taper
+                    if device is not None and t.device != device:
+                        t = t.to(device)
+                    if dtype is not None and t.dtype != dtype:
+                        t = t.to(dtype)
+                    # win_length is ignored because taper already has correct length
+                    return t
+                return window_fn
+
+            spec = Spectrogram(
+                n_fft=n_fft,
+                win_length=win_length,
+                hop_length=hop_length,
+                pad=pad,
+                power=2.0,
+                center=center,
+                window_fn=make_window_fn(taper_k),
+            )
+            self.specs.append(spec)
+
+        # --- Frequency axis + mask (same as your class) ---
+        self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
+        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs < self.max_freq)
+
+    def __call__(self, data: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            data: time series, shape (T,) or (T, C).
+                  Internally we use (C, T) for torchaudio.
+
+        Returns:
+            Multitaper spectrogram:
+            - shape (C, F', frames) after freq selection (+ optional pooling)
+        """
+        # Ensure shape (T, C)
+        if data.dim() == 1:
+            data = data.unsqueeze(1)  # (T, 1)
+        elif data.dim() != 2:
+            raise ValueError("data must be 1D (T,) or 2D (T, C)")
+
+        # (C, T) for torchaudio
+        x = data.T
+
+        # --- Multitaper accumulation ---
+        spec_accum = None
+        for spec in self.specs:
+            # spec(x): (C, F, frames)
+            spec_k = spec(x)
+            if spec_accum is None:
+                spec_accum = spec_k
+            else:
+                spec_accum += spec_k
+
+        # Average over tapers
+        spec_mt = spec_accum / self.K  # (C, F, frames)
+
+        # Log-power
+        spec_mt = torch.log(spec_mt + 1.0)
+
+        # Frequency mask
+        spec_mt = spec_mt[:, self.freq_mask, :]  # (C, F_masked, frames)
+
+        # Optional pooling along frequency axis
+        if self.resolution_factor > 1:
+            C, F, T_frames = spec_mt.shape
+            F_new = F // self.resolution_factor
+            # Drop extra bins that don't fit evenly
+            spec_mt = spec_mt[:, :F_new * self.resolution_factor, :]
+            spec_mt = spec_mt.view(
+                C, F_new, self.resolution_factor, T_frames
+            ).mean(dim=2)  # (C, F_new, T_frames)
+
+        return spec_mt
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}(fs={self.fs}, resolution={self.resolution}, "
+            f"min_freq={self.min_freq}, max_freq={self.max_freq}, NW={self.NW}, K={self.K})"
+        )
+
+
 
 class SpectrogramTransform:
     def __init__(self, fs=200, resolution=0.1, win_length=1000, hop_length=1000, pad=0, min_freq=0, max_freq=32, resolution_factor=1):
@@ -468,17 +679,221 @@ class SpectrogramCNN(nn.Module):
         x = torch.moveaxis(x, 3, 1)
         x = self.model(x)
         return x 
+
+
+def validate_welch_against_mne(
+    win_length: int = 1000,
+    fs: float = 200.0,
+    n_per_seg: int = 1000,
+    n_overlap: int = 0,
+    min_freq: float = 0.0,
+    max_freq: float = 32.0,
+):
+    """
+    Validate WelchSpectrogramTransform against MNE's psd_array_welch
+    on a single 1D signal window.
+
+    This checks that both implementations produce numerically similar
+    spectra (up to an overall scaling factor).
     
+    Args:
+        win_length: Length of the entire signal
+        fs: Sampling frequency
+        n_per_seg: Length of each Welch segment (should match win_length in transform)
+        n_overlap: Number of samples overlap between segments
+        min_freq: Minimum frequency to keep
+        max_freq: Maximum frequency to keep
+    """
+    # ---- 1. Create test signal ----
+    rng = np.random.default_rng(0)
+    x_np = rng.standard_normal(win_length).astype(np.float32)  # (T,)
+    x_torch = torch.from_numpy(x_np).unsqueeze(0)  # (1, T) - add channel dimension
+
+    # ---- 2. Instantiate Welch transform ----
+    # Choose resolution so that n_fft matches expected frequency resolution
+    resolution = fs / n_per_seg
+
+    welch_transform = WelchSpectrogramTransform(
+        fs=fs,
+        resolution=resolution,
+        win_length=n_per_seg,
+        hop_length=n_per_seg - n_overlap,
+        pad=0,
+        min_freq=min_freq,
+        max_freq=max_freq,
+        resolution_factor=1,
+    )
+
+    # ---- 3. Our Welch spectrogram → PSD ----
+    # welch_spec: shape (C=1, F_masked, frames)
+    welch_spec_log = welch_transform(x_torch)           # (1, F, frames)
+    welch_spec_log = welch_spec_log.squeeze(0)          # (F, frames)
+    
+    # Average across time frames (Welch averaging)
+    welch_spec_log_avg = welch_spec_log.mean(dim=-1)   # (F,)
+
+    # Undo log to compare on linear scale
+    welch_psd = torch.exp(welch_spec_log_avg) - 1.0    # (F,)
+    welch_psd_np = welch_psd.detach().cpu().numpy()
+
+    # ---- 4. MNE Welch PSD with same settings ----
+    psd_mne, freqs_mne = psd_array_welch(
+        x_np[np.newaxis, :],    # shape (n_epochs=1, n_times)
+        sfreq=fs,
+        fmin=min_freq,
+        fmax=max_freq,
+        n_fft=int(fs / resolution),
+        n_per_seg=n_per_seg,
+        n_overlap=n_overlap,
+        average='mean',
+        window='hann',
+        verbose=False,
+    )
+    psd_mne = psd_mne[0]        # (F,)
+
+    # ---- 5. Basic shape check ----
+    if psd_mne.shape[0] != welch_psd_np.shape[0]:
+        raise RuntimeError(
+            f"Frequency dimension mismatch: "
+            f"MNE {psd_mne.shape[0]} vs ours {welch_psd_np.shape[0]}"
+        )
+
+    # ---- 6. Compare up to an overall scaling factor ----
+    # Different implementations often differ by a constant scale
+    # (e.g., density vs. power, window normalization, etc.).
+    # Normalize both to unit mean and then compare.
+    psd_mne_norm = psd_mne / psd_mne.mean()
+    welch_psd_norm = welch_psd_np / welch_psd_np.mean()
+
+    max_abs_diff = np.max(np.abs(psd_mne_norm - welch_psd_norm))
+    l2_diff = np.linalg.norm(psd_mne_norm - welch_psd_norm) / np.linalg.norm(psd_mne_norm)
+
+    print(f"Max abs diff (after normalization): {max_abs_diff:.3e}")
+    print(f"Relative L2 error (after normalization): {l2_diff:.3e}")
+
+    # Optionally return values for plotting/debugging
+    return {
+        "freqs": freqs_mne,
+        "psd_mne": psd_mne,
+        "psd_ours": welch_psd_np,
+        "psd_mne_norm": psd_mne_norm,
+        "psd_ours_norm": welch_psd_norm,
+        "max_abs_diff": max_abs_diff,
+        "rel_l2_diff": l2_diff,
+    }
+
+def validate_multitaper_against_mne(
+    win_length: int = 1000,
+    fs: float = 200.0,
+    NW: float = 3.5,
+    min_freq: float = 0.0,
+    max_freq: float = 32.0,
+):
+    """
+    Validate MultitaperSpectrogramTransform against MNE's psd_array_multitaper
+    on a single 1D signal window of length `win_length`.
+
+    This checks that both implementations produce numerically similar
+    spectra (up to an overall scaling factor).
+    """
+    # ---- 1. Create test signal ----
+    rng = np.random.default_rng(0)
+    x_np = rng.standard_normal(win_length).astype(np.float32)  # (T,)
+    x_torch = torch.from_numpy(x_np)  # (T,)
+
+    # ---- 2. Instantiate your multitaper transform ----
+    # Choose resolution so that n_fft == win_length for clean alignment:
+    # n_fft = fs / resolution → resolution = fs / win_length
+    resolution = fs / win_length
+
+    mt_transform = MultitaperSpectrogramTransform(
+        fs=fs,
+        resolution=resolution,
+        win_length=win_length,
+        hop_length=win_length,   # one frame
+        pad=0,
+        min_freq=min_freq,
+        max_freq=max_freq,
+        resolution_factor=1,
+        NW=NW,
+        K=None,                  # uses K = int(2*NW - 1)
+        center=False,            # avoid torchaudio centering/padding
+    )
+
+    # ---- 3. Our multitaper spectrogram → PSD ----
+    # mt_spec: shape (C=1, F_masked, frames=1)
+    mt_spec_log = mt_transform(x_torch)          # (1, F, 1)
+    mt_spec_log = mt_spec_log.squeeze(0).squeeze(-1)  # (F,)
+
+    # Undo log to compare on linear scale
+    mt_psd = torch.exp(mt_spec_log) - 1.0        # (F,)
+    mt_psd_np = mt_psd.detach().cpu().numpy()
+
+    # ---- 4. MNE multitaper PSD with same settings ----
+    # MNE uses a 'bandwidth' in Hz. For DPSS:
+    #   time-bandwidth NW = T_sec * bandwidth_Hz
+    # → bandwidth_Hz = NW / T_sec = NW * fs / win_length
+    bandwidth_hz = NW * fs / win_length
+    psd_mne, freqs_mne = psd_array_multitaper(
+        x_np[np.newaxis, :],    # shape (n_epochs=1, n_times)
+        sfreq=fs,
+        fmin=min_freq,
+        fmax=max_freq,
+        bandwidth=bandwidth_hz,
+        adaptive=False,
+        low_bias=True,
+        normalization="full",
+        verbose=False,
+    )
+    psd_mne = psd_mne[0]        # (F,)
+
+    # ---- 5. Basic shape check ----
+    if psd_mne.shape[0] != mt_psd_np.shape[0]:
+        raise RuntimeError(
+            f"Frequency dimension mismatch: "
+            f"MNE {psd_mne.shape[0]} vs ours {mt_psd_np.shape[0]}"
+        )
+
+    # ---- 6. Compare up to an overall scaling factor ----
+    # Different implementations often differ by a constant scale
+    # (e.g., density vs. power, window normalization, etc.).
+    # Normalize both to unit mean and then compare.
+    psd_mne_norm = psd_mne / psd_mne.mean()
+    mt_psd_norm = mt_psd_np / mt_psd_np.mean()
+
+    max_abs_diff = np.max(np.abs(psd_mne_norm - mt_psd_norm))
+    l2_diff = np.linalg.norm(psd_mne_norm - mt_psd_norm) / np.linalg.norm(psd_mne_norm)
+
+    print(f"Max abs diff (after normalization): {max_abs_diff:.3e}")
+    print(f"Relative L2 error (after normalization): {l2_diff:.3e}")
+
+    # Optionally return values for plotting/debugging
+    return {
+        "freqs": freqs_mne,
+        "psd_mne": psd_mne,
+        "psd_ours": mt_psd_np,
+        "psd_mne_norm": psd_mne_norm,
+        "psd_ours_norm": mt_psd_norm,
+        "max_abs_diff": max_abs_diff,
+        "rel_l2_diff": l2_diff,
+    }
+
+
 if __name__ == "__main__":
-    trainset = TUEVBaselineDataset(mode='train', window_length=5, resolution=0.2)
-    aa = trainset[0]
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
-    model = SpectrogramCNN(model='conv1d', num_classes=6)
-    model2 = SpectrogramCNN(model='conv2d', num_classes=6)
-    for X, Y in trainloader:
-        bp() 
-        output = model(X)
-        output2 = model2(X)
-        bp() 
-        print(output.shape, output2.shape, Y)
-        break
+    welch_results = validate_welch_against_mne()
+    multitaper_results = validate_multitaper_against_mne()
+    print(welch_results)
+    print(multitaper_results)
+    bp() 
+    # trainset = TUEVBaselineDataset(mode='train', window_length=5, resolution=0.2)
+    # aa = trainset[0]
+    # trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
+    # model = SpectrogramCNN(model='conv1d', num_classes=6)
+    # model2 = SpectrogramCNN(model='conv2d', num_classes=6)
+    # for X, Y in trainloader:
+    #     bp() 
+    #     output = model(X)
+    #     output2 = model2(X)
+    #     bp() 
+    #     print(output.shape, output2.shape, Y)
+    #     break
