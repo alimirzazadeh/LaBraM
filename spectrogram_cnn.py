@@ -880,8 +880,8 @@ def validate_multitaper_against_mne(
 
 
 if __name__ == "__main__":
-    welch_results = validate_welch_against_mne()
     multitaper_results = validate_multitaper_against_mne()
+    welch_results = validate_welch_against_mne()
     print(welch_results)
     print(multitaper_results)
     bp() 
