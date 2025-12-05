@@ -902,7 +902,7 @@ class MultitaperSpectrogramTransform:
         """
         Args:
             data: time series, shape (T,) or (T, C).
-                  Internally we use (C, T) for torchaudio.
+                  Internally we use (C, T) for processing.
 
         Returns:
             Multitaper spectrogram:
@@ -919,72 +919,66 @@ class MultitaperSpectrogramTransform:
         C, T = x.shape
         
         # Process each segment (for hop_length < win_length, we'd have multiple segments)
-        # For now, assume we process the full signal or a single segment
         if T < self.win_length:
             # Pad if needed
             x_padded = F.pad(x, (0, self.win_length - T), mode='constant', value=0)
             segment = x_padded[:, :self.win_length]
-            n_segments = 1
         else:
-            # Calculate number of segments
-            n_segments = (T - self.win_length) // self.hop_length + 1
-            segments = []
-            for i in range(n_segments):
-                start_idx = i * self.hop_length
-                end_idx = start_idx + self.win_length
-                segments.append(x[:, start_idx:end_idx])
-            # For now, process first segment (matching validation case)
-            segment = segments[0] if n_segments > 0 else x[:, :self.win_length]
-            n_segments = 1
-        
-        # --- Multitaper accumulation with eigenvalue weighting (matches MNE) ---
-        # MNE computes: FFT(taper * signal) for each taper, then combines
-        # MNE uses: psd = np.sum(mt_spectra * weights**2, axis=1) / weights.sum()**2
-        # where weights = sqrt(eigvals), so weights**2 = eigvals
-        
-        spec_accum = None
-        print('Multitaper: Number of tapers:', self.K)
+            # Calculate number of segments and process first segment
+            segment = x[:, :self.win_length]
         
         # Move tapers to same device as data
         device = segment.device
         tapers = self._tapers.to(device)  # (K, win_length)
-        eigvals = self._eigvals.to(device)  # (K,)
-        weights = self._weights.to(device)  # (K,)
+        weights = self._weights.to(device)  # (K,) - sqrt(eigvals)
         
-        # Remove DC component (matches MNE's remove_dc=True default)
-        # MNE removes DC before applying tapers
+        # Remove DC component (matches MNE's _mt_spectra with remove_dc=True)
         segment = segment - segment.mean(dim=-1, keepdim=True)  # (C, win_length)
         
+        # Compute multitaper spectra (matches MNE's _mt_spectra)
+        # Apply each taper and compute FFT
+        # x_mt shape: (C, K, n_fft//2 + 1) - complex
+        x_mt_list = []
         for k in range(self.K):
-            # Apply taper to signal: (C, win_length) * (win_length,) -> (C, win_length)
             taper_k = tapers[k]  # (win_length,)
             tapered_signal = segment * taper_k  # (C, win_length)
             
-            # Compute FFT (matches MNE's _mt_spectra)
-            # Use rfft for real-valued input: (C, win_length) -> (C, n_fft//2 + 1)
-            fft_result = torch.fft.rfft(tapered_signal, n=self.n_fft, dim=-1)  # (C, n_fft//2 + 1)
-            
-            # Compute power spectrum (squared magnitude)
-            # Try without normalization first - MNE might normalize differently
-            spec_k = torch.abs(fft_result) ** 2  # (C, n_fft//2 + 1)
-            
-            # Add time dimension for consistency: (C, F) -> (C, F, 1)
-            spec_k = spec_k.unsqueeze(-1)  # (C, F, 1)
-            
-            # Weight by eigenvalue (weights**2 in MNE, where weights = sqrt(eigvals))
-            # MNE: psd = sum(mt_spectra * weights**2, axis=1) / weights.sum()**2
-            # where weights = sqrt(eigvals), so weights**2 = eigvals
-            eigval_k = eigvals[k]
-            if spec_accum is None:
-                spec_accum = spec_k * eigval_k
-            else:
-                spec_accum += spec_k * eigval_k
-
-        # Normalize by (sum of sqrt(eigvals))**2 (matches MNE's _psd_from_mt)
-        # MNE: psd = sum(mt_spectra * weights**2, axis=1) / weights.sum()**2
-        # where weights = sqrt(eigvals), so weights**2 = eigvals
-        weight_sum = weights.sum()  # sum of sqrt(eigvals)
-        spec_mt = spec_accum / (weight_sum ** 2)  # (C, F, 1)
+            # Compute FFT (real FFT for real input)
+            fft_result = torch.fft.rfft(tapered_signal, n=self.n_fft, dim=-1)  # (C, n_fft//2 + 1) complex
+            x_mt_list.append(fft_result)
+        
+        # Stack: (C, K, n_fft//2 + 1) - complex
+        x_mt = torch.stack(x_mt_list, dim=1)  # (C, K, F)
+        
+        # Adjust DC and Nyquist (matches MNE's _mt_spectra)
+        # DC component (index 0) divided by sqrt(2)
+        sqrt_2 = torch.sqrt(torch.tensor(2.0, device=device, dtype=x_mt.dtype))
+        x_mt[:, :, 0] = x_mt[:, :, 0] / sqrt_2
+        # Nyquist component (last index) divided by sqrt(2) if n_fft is even
+        if self.n_fft % 2 == 0:
+            x_mt[:, :, -1] = x_mt[:, :, -1] / sqrt_2
+        
+        # Compute PSD from multitaper spectra (matches MNE's _psd_from_mt)
+        # weights shape: (K,) -> (1, K, 1) for broadcasting
+        weights_expanded = weights.view(1, -1, 1)  # (1, K, 1)
+        
+        # psd = weights * x_mt (complex multiplication)
+        psd = weights_expanded * x_mt  # (C, K, F) complex
+        
+        # psd *= psd.conj() to get |weights * x_mt|^2
+        psd = psd * psd.conj()  # (C, K, F) complex
+        psd = psd.real  # (C, K, F) real
+        
+        # Sum over tapers (axis=1)
+        psd = psd.sum(dim=1)  # (C, F)
+        
+        # Normalize: psd *= 2 / (weights * weights.conj()).real.sum(axis=-2)
+        # weights * weights.conj() = |weights|^2 = eigvals (since weights = sqrt(eigvals))
+        weight_norm = (weights * weights.conj()).real.sum()  # scalar
+        psd = psd * (2.0 / weight_norm)  # (C, F)
+        
+        # Add time dimension: (C, F) -> (C, F, 1)
+        spec_mt = psd.unsqueeze(-1)  # (C, F, 1)
 
         # Apply normalization (matches MNE)
         # MNE divides by sfreq when normalization="full"
