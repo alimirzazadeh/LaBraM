@@ -432,9 +432,11 @@ class MultitaperSpectrogramTransform:
         NW=3.5,
         K=None,
         center=True,
+        normalization="full",
     ):
         """
         Multitaper spectrogram using DPSS tapers and torchaudio Spectrogram.
+        Matches MNE's psd_array_multitaper implementation.
 
         Args:
             fs: sampling rate (Hz)
@@ -442,11 +444,12 @@ class MultitaperSpectrogramTransform:
             win_length: STFT window length (samples)
             hop_length: STFT hop length (samples)
             pad: STFT padding
-            min_freq, max_freq: keep freqs in [min_freq, max_freq)
+            min_freq, max_freq: keep freqs in [min_freq, max_freq]
             resolution_factor: optional pooling factor along frequency axis
             NW: time-bandwidth product for DPSS
             K: number of tapers; if None, uses K = int(2 * NW - 1)
             center: passed to torchaudio Spectrogram
+            normalization: "length" or "full" (matches MNE). If "full", divides by sfreq.
         """
         n_fft = int(fs / resolution)
 
@@ -460,14 +463,20 @@ class MultitaperSpectrogramTransform:
         self.resolution_factor = resolution_factor
         self.NW = NW
         self.center = center
+        self.normalization = normalization
 
-        # --- DPSS tapers (length = win_length) ---
+        # --- DPSS tapers and eigenvalues (length = win_length) ---
         if K is None:
             K = int(2 * NW - 1)
-        tapers_np = dpss(win_length, NW, Kmax=K)  # (K, win_length)
+        # scipy's dpss returns (tapers, eigenvalues) when Kmax > 1
+        tapers_np, eigvals_np = dpss(win_length, NW, Kmax=K)  # (K, win_length), (K,)
         tapers = torch.tensor(tapers_np.copy(), dtype=torch.float32)  # store on CPU
+        eigvals = torch.tensor(eigvals_np.copy(), dtype=torch.float32)  # store on CPU
         self.K = tapers.shape[0]
         self._tapers = tapers  # (K, win_length)
+        self._eigvals = eigvals  # (K,) - eigenvalues
+        # MNE uses sqrt(eigvals) as weights for normalization
+        self._weights = torch.sqrt(eigvals)  # (K,) - sqrt(eigenvalues)
 
         # --- Build a Spectrogram transform per taper ---
         self.specs = []
@@ -520,19 +529,28 @@ class MultitaperSpectrogramTransform:
         # (C, T) for torchaudio
         x = data.T
 
-        # --- Multitaper accumulation ---
+        # --- Multitaper accumulation with eigenvalue weighting (matches MNE) ---
+        # MNE uses: psd = np.sum(mt_spectra * weights**2, axis=1) / weights.sum()**2
+        # where weights = sqrt(eigvals), so weights**2 = eigvals
         spec_accum = None
         print('Multitaper: Number of specs:', len(self.specs))
-        for spec in self.specs:
+        for k, spec in enumerate(self.specs):
             # spec(x): (C, F, frames)
             spec_k = spec(x)
+            # Weight by eigenvalue (weights**2 in MNE, where weights = sqrt(eigvals))
+            eigval_k = self._eigvals[k]
             if spec_accum is None:
-                spec_accum = spec_k
+                spec_accum = spec_k * eigval_k
             else:
-                spec_accum += spec_k
+                spec_accum += spec_k * eigval_k
 
-        # Average over tapers
-        spec_mt = spec_accum / self.K  # (C, F, frames)
+        # Normalize by (sum of sqrt(eigvals))**2 (matches MNE's _psd_from_mt)
+        weight_sum = self._weights.sum()  # sum of sqrt(eigvals)
+        spec_mt = spec_accum / (weight_sum ** 2)  # (C, F, frames)
+
+        # Apply normalization (matches MNE)
+        if self.normalization == "full":
+            spec_mt = spec_mt / self.fs
 
         # Log-power
         spec_mt = torch.log(spec_mt + 1.0)
@@ -821,6 +839,7 @@ def validate_multitaper_against_mne(
         NW=NW,
         K=None,                  # uses K = int(2*NW - 1)
         center=False,            # avoid torchaudio centering/padding
+        normalization="full",    # matches MNE default
     )
 
     # ---- 3. Our multitaper spectrogram → PSD ----
@@ -958,6 +977,7 @@ def compare_compute_times(
         NW=NW,
         K=None,
         center=False,
+        normalization="full",  # matches MNE default
     )
     
     # MNE settings (n_fft already calculated above)
