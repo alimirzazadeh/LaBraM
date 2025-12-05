@@ -15,7 +15,7 @@ from scipy.signal import get_window
 import torch.nn as nn
 import torch.nn.functional as F
 import pickle
-from mne.time_frequency import psd_array_welch
+from mne.time_frequency import psd_array_welch, psd_array_multitaper
 import time
 from scipy.fft import rfftfreq, rfft
 from scipy.signal.windows import dpss as sp_dpss
@@ -298,7 +298,7 @@ def _psd_from_mt_adaptive(x_mt, eigvals, freq_mask, max_iter=250, return_weights
     else:
         return psd
 
-def psd_array_multitaper(
+def our_psd_array_multitaper(
     x,
     sfreq,
     fmin=0.0,
