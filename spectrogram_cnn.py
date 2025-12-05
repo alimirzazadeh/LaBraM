@@ -877,26 +877,27 @@ class MultitaperSpectrogramTransform:
         self.NW = NW
         self.center = center
         self.normalization = normalization
-
-        # --- DPSS tapers and eigenvalues (length = win_length) ---
-        if K is None:
-            K = int(2 * NW - 1)
-        # scipy's dpss returns (tapers, eigenvalues) when Kmax > 1
-        tapers_np, eigvals_np = dpss(win_length, NW, Kmax=K, return_ratios=True)  # (K, win_length), (K,)
-        tapers = torch.tensor(tapers_np.copy(), dtype=torch.float32)  # store on CPU
-        eigvals = torch.tensor(eigvals_np.copy(), dtype=torch.float32)  # store on CPU
-        self.K = tapers.shape[0]
-        self._tapers = tapers  # (K, win_length)
-        self._eigvals = eigvals  # (K,) - eigenvalues
-        # MNE uses sqrt(eigvals) as weights for normalization
-        self._weights = torch.sqrt(eigvals)  # (K,) - sqrt(eigenvalues)
-
-        # Store n_fft for FFT computation (matches MNE's approach)
         self.n_fft = n_fft
+
+        # Use MNE's _compute_mt_params to get tapers and eigenvalues (exact match)
+        # Compute bandwidth from NW: bandwidth = NW * fs / win_length
+        bandwidth = NW * fs / win_length
+        dpss_np, eigvals_np, _ = _compute_mt_params(
+            win_length, fs, bandwidth, low_bias=True, adaptive=False
+        )
         
-        # --- Frequency axis + mask ---
-        self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
-        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs <= self.max_freq)
+        # Store as numpy arrays (will convert to torch when needed)
+        self._dpss_np = dpss_np  # (K, win_length)
+        self._eigvals_np = eigvals_np  # (K,)
+        self.K = len(eigvals_np)
+        
+        # Compute weights (sqrt of eigenvalues) as MNE does
+        self._weights_np = np.sqrt(eigvals_np)  # (K,)
+        
+        # Frequency axis (matches MNE's rfftfreq - uses signal length, not n_fft)
+        # MNE uses: freqs = rfftfreq(n_times, 1.0 / sfreq) where n_times = win_length
+        self.freqs_np = rfftfreq(win_length, 1.0 / fs)
+        self.freq_mask_np = (self.freqs_np >= min_freq) & (self.freqs_np <= max_freq)
 
     def __call__(self, data: torch.Tensor) -> torch.Tensor:
         """
@@ -927,69 +928,77 @@ class MultitaperSpectrogramTransform:
             # Calculate number of segments and process first segment
             segment = x[:, :self.win_length]
         
-        # Move tapers to same device as data
         device = segment.device
-        tapers = self._tapers.to(device)  # (K, win_length)
-        weights = self._weights.to(device)  # (K,) - sqrt(eigvals)
+        dtype = segment.dtype
         
-        # Remove DC component (matches MNE's _mt_spectra with remove_dc=True)
-        segment = segment - segment.mean(dim=-1, keepdim=True)  # (C, win_length)
+        # Convert to numpy for MNE functions, then back to torch for FFT
+        # MNE expects shape (n_signals, n_times)
+        segment_np = segment.detach().cpu().numpy()  # (C, win_length)
         
-        # Compute multitaper spectra (matches MNE's _mt_spectra)
+        # Use MNE's _mt_spectra logic but with torch FFT
+        # Remove DC (matches MNE's remove_dc=True)
+        if True:  # remove_dc=True
+            segment_np = segment_np - np.mean(segment_np, axis=-1, keepdims=True)
+        
+        # Convert back to torch for FFT computation
+        segment_torch = torch.from_numpy(segment_np).to(device=device, dtype=dtype)  # (C, win_length)
+        dpss_torch = torch.from_numpy(self._dpss_np).to(device=device, dtype=dtype)  # (K, win_length)
+        
+        # Compute multitaper spectra using torch FFT (matches MNE's _mt_spectra)
+        # MNE's _mt_spectra uses n_fft = signal length (win_length) by default
+        # Use win_length for FFT to match MNE's default behavior
+        n_fft_mt = self.win_length  # MNE uses signal length by default
+        
         # Apply each taper and compute FFT
-        # x_mt shape: (C, K, n_fft//2 + 1) - complex
-        x_mt_list = []
-        for k in range(self.K):
-            taper_k = tapers[k]  # (win_length,)
-            tapered_signal = segment * taper_k  # (C, win_length)
+        n_tapers = self.K
+        n_freqs = n_fft_mt // 2 + 1
+        x_mt = torch.zeros((C, n_tapers, n_freqs), dtype=torch.complex64, device=device)
+        
+        for idx in range(C):
+            sig = segment_torch[idx]  # (win_length,)
+            # Apply tapers: (win_length,) * (K, win_length) -> (K, win_length)
+            tapered = sig.unsqueeze(0) * dpss_torch  # (K, win_length)
             
-            # Compute FFT (real FFT for real input)
-            fft_result = torch.fft.rfft(tapered_signal, n=self.n_fft, dim=-1)  # (C, n_fft//2 + 1) complex
-            x_mt_list.append(fft_result)
+            # Compute FFT using torch (replaces scipy's rfft in MNE's _mt_spectra)
+            x_mt[idx] = torch.fft.rfft(tapered, n=n_fft_mt, dim=-1)  # (K, n_freqs) complex
         
-        # Stack: (C, K, n_fft//2 + 1) - complex
-        x_mt = torch.stack(x_mt_list, dim=1)  # (C, K, F)
-        
-        # Adjust DC and Nyquist (matches MNE's _mt_spectra)
-        # DC component (index 0) divided by sqrt(2)
-        sqrt_2 = torch.sqrt(torch.tensor(2.0, device=device, dtype=x_mt.dtype))
+        # Adjust DC and Nyquist (matches MNE's _mt_spectra exactly)
+        sqrt_2 = np.sqrt(2.0)
         x_mt[:, :, 0] = x_mt[:, :, 0] / sqrt_2
-        # Nyquist component (last index) divided by sqrt(2) if n_fft is even
-        if self.n_fft % 2 == 0:
+        if n_fft_mt % 2 == 0:
             x_mt[:, :, -1] = x_mt[:, :, -1] / sqrt_2
         
-        # Compute PSD from multitaper spectra (matches MNE's _psd_from_mt)
-        # weights shape: (K,) -> (1, K, 1) for broadcasting
-        weights_expanded = weights.view(1, -1, 1)  # (1, K, 1)
+        # Apply frequency mask (matches MNE)
+        x_mt_masked = x_mt[:, :, self.freq_mask_np]  # (C, K, n_freqs_masked)
         
-        # psd = weights * x_mt (complex multiplication)
-        psd = weights_expanded * x_mt  # (C, K, F) complex
+        # Use MNE's _psd_from_mt logic with torch operations
+        # Convert weights to torch
+        weights_torch = torch.from_numpy(self._weights_np).to(device=device, dtype=torch.complex64)  # (K,)
+        weights_expanded = weights_torch.view(1, -1, 1)  # (1, K, 1)
+        
+        # _psd_from_mt: psd = weights * x_mt
+        psd = weights_expanded * x_mt_masked  # (C, K, n_freqs_masked) complex
         
         # psd *= psd.conj() to get |weights * x_mt|^2
-        psd = psd * psd.conj()  # (C, K, F) complex
-        psd = psd.real  # (C, K, F) real
+        psd = psd * psd.conj()  # (C, K, n_freqs_masked) complex
+        psd = psd.real  # (C, K, n_freqs_masked) real
         
-        # Sum over tapers (axis=1)
-        psd = psd.sum(dim=1)  # (C, F)
+        # Sum over tapers (axis=1, which is -2 in MNE's notation)
+        psd = psd.sum(dim=1)  # (C, n_freqs_masked)
         
-        # Normalize: psd *= 2 / (weights * weights.conj()).real.sum(axis=-2)
-        # weights * weights.conj() = |weights|^2 = eigvals (since weights = sqrt(eigvals))
-        weight_norm = (weights * weights.conj()).real.sum()  # scalar
-        psd = psd * (2.0 / weight_norm)  # (C, F)
+        # Normalize: psd *= 2 / (weights * weights.conj()).real.sum()
+        weight_norm = (weights_torch * weights_torch.conj()).real.sum()  # scalar
+        psd = psd * (2.0 / weight_norm)  # (C, n_freqs_masked)
         
         # Add time dimension: (C, F) -> (C, F, 1)
-        spec_mt = psd.unsqueeze(-1)  # (C, F, 1)
+        spec_mt = psd.unsqueeze(-1)  # (C, F_masked, 1)
 
         # Apply normalization (matches MNE)
-        # MNE divides by sfreq when normalization="full"
         if self.normalization == "full":
             spec_mt = spec_mt / self.fs
 
         # Log-power
         spec_mt = torch.log(spec_mt + 1.0)
-
-        # Frequency mask
-        spec_mt = spec_mt[:, self.freq_mask, :]  # (C, F_masked, frames)
 
         # Optional pooling along frequency axis
         if self.resolution_factor > 1:
