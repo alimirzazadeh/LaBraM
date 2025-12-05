@@ -1062,9 +1062,10 @@ def compare_compute_times(
 
 if __name__ == "__main__":
     multitaper_results = validate_multitaper_against_mne()
+    print(multitaper_results)
+    bp() 
     welch_results = validate_welch_against_mne()
     print(welch_results)
-    print(multitaper_results)
     
     # Compare compute times
     timing_results = compare_compute_times(
