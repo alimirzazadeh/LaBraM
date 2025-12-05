@@ -1083,10 +1083,12 @@ def compare_compute_times(
 if __name__ == "__main__":
     multitaper_results = validate_multitaper_against_mne()
     print(multitaper_results)
-    bp() 
+    
     print((multitaper_results['psd_mne'] - multitaper_results['psd_ours']) / multitaper_results['psd_mne'])
     import scipy.stats
     print(scipy.stats.pearsonr(multitaper_results['psd_mne'], multitaper_results['psd_ours']))
+    
+    bp() 
     welch_results = validate_welch_against_mne()
     print(welch_results)
     
