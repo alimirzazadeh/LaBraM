@@ -384,6 +384,7 @@ class WelchSpectrogramTransform:
         segment_specs = []
         
         # Process each segment separately
+        print('Welch: Number of segments:', n_segments)
         for i in range(n_segments):
             start_idx = i * self.hop_length
             end_idx = start_idx + self.win_length
@@ -521,6 +522,7 @@ class MultitaperSpectrogramTransform:
 
         # --- Multitaper accumulation ---
         spec_accum = None
+        print('Multitaper: Number of specs:', len(self.specs))
         for spec in self.specs:
             # spec(x): (C, F, frames)
             spec_k = spec(x)
