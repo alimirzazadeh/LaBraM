@@ -539,6 +539,7 @@ class MultitaperSpectrogramTransform:
         weights = self._weights.to(device)  # (K,)
         
         # Remove DC component (matches MNE's remove_dc=True default)
+        # MNE removes DC before applying tapers
         segment = segment - segment.mean(dim=-1, keepdim=True)  # (C, win_length)
         
         for k in range(self.K):
@@ -551,13 +552,15 @@ class MultitaperSpectrogramTransform:
             fft_result = torch.fft.rfft(tapered_signal, n=self.n_fft, dim=-1)  # (C, n_fft//2 + 1)
             
             # Compute power spectrum (squared magnitude)
-            # MNE's _mt_spectra computes |FFT|^2 directly
+            # Try without normalization first - MNE might normalize differently
             spec_k = torch.abs(fft_result) ** 2  # (C, n_fft//2 + 1)
             
             # Add time dimension for consistency: (C, F) -> (C, F, 1)
             spec_k = spec_k.unsqueeze(-1)  # (C, F, 1)
             
             # Weight by eigenvalue (weights**2 in MNE, where weights = sqrt(eigvals))
+            # MNE: psd = sum(mt_spectra * weights**2, axis=1) / weights.sum()**2
+            # where weights = sqrt(eigvals), so weights**2 = eigvals
             eigval_k = eigvals[k]
             if spec_accum is None:
                 spec_accum = spec_k * eigval_k
@@ -565,8 +568,14 @@ class MultitaperSpectrogramTransform:
                 spec_accum += spec_k * eigval_k
 
         # Normalize by (sum of sqrt(eigvals))**2 (matches MNE's _psd_from_mt)
+        # MNE: psd = sum(mt_spectra * weights**2, axis=1) / weights.sum()**2
+        # where weights = sqrt(eigvals), so weights**2 = eigvals
         weight_sum = weights.sum()  # sum of sqrt(eigvals)
         spec_mt = spec_accum / (weight_sum ** 2)  # (C, F, 1)
+        
+        # MNE normalizes by n_fft in the FFT computation or after combining
+        # Standard PSD normalization: divide by n_fft to get power per frequency bin
+        spec_mt = spec_mt / self.n_fft  # (C, F, 1)
 
         # Apply normalization (matches MNE)
         if self.normalization == "full":
