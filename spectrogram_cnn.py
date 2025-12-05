@@ -469,7 +469,7 @@ class MultitaperSpectrogramTransform:
         if K is None:
             K = int(2 * NW - 1)
         # scipy's dpss returns (tapers, eigenvalues) when Kmax > 1
-        tapers_np, eigvals_np = dpss(win_length, NW, Kmax=K)  # (K, win_length), (K,)
+        tapers_np, eigvals_np = dpss(win_length, NW, Kmax=K, return_ratios=True)  # (K, win_length), (K,)
         tapers = torch.tensor(tapers_np.copy(), dtype=torch.float32)  # store on CPU
         eigvals = torch.tensor(eigvals_np.copy(), dtype=torch.float32)  # store on CPU
         self.K = tapers.shape[0]
