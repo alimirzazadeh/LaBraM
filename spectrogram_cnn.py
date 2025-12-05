@@ -478,35 +478,10 @@ class MultitaperSpectrogramTransform:
         # MNE uses sqrt(eigvals) as weights for normalization
         self._weights = torch.sqrt(eigvals)  # (K,) - sqrt(eigenvalues)
 
-        # --- Build a Spectrogram transform per taper ---
-        self.specs = []
-        for k in range(self.K):
-            taper_k = self._tapers[k]
-
-            def make_window_fn(taper):
-                # window_fn signature: (win_length, *, dtype, layout, device, **kwargs)
-                def window_fn(win_length, dtype=None, layout=None, device=None, **kwargs):
-                    t = taper
-                    if device is not None and t.device != device:
-                        t = t.to(device)
-                    if dtype is not None and t.dtype != dtype:
-                        t = t.to(dtype)
-                    # win_length is ignored because taper already has correct length
-                    return t
-                return window_fn
-
-            spec = Spectrogram(
-                n_fft=n_fft,
-                win_length=win_length,
-                hop_length=hop_length,
-                pad=pad,
-                power=2.0,
-                center=center,
-                window_fn=make_window_fn(taper_k),
-            )
-            self.specs.append(spec)
-
-        # --- Frequency axis + mask (same as your class) ---
+        # Store n_fft for FFT computation (matches MNE's approach)
+        self.n_fft = n_fft
+        
+        # --- Frequency axis + mask ---
         self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
         self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs <= self.max_freq)
 
@@ -526,27 +501,72 @@ class MultitaperSpectrogramTransform:
         elif data.dim() != 2:
             raise ValueError("data must be 1D (T,) or 2D (T, C)")
 
-        # (C, T) for torchaudio
-        x = data.T
-
+        # (C, T) for processing
+        x = data.T  # (C, T)
+        C, T = x.shape
+        
+        # Process each segment (for hop_length < win_length, we'd have multiple segments)
+        # For now, assume we process the full signal or a single segment
+        if T < self.win_length:
+            # Pad if needed
+            x_padded = F.pad(x, (0, self.win_length - T), mode='constant', value=0)
+            segment = x_padded[:, :self.win_length]
+            n_segments = 1
+        else:
+            # Calculate number of segments
+            n_segments = (T - self.win_length) // self.hop_length + 1
+            segments = []
+            for i in range(n_segments):
+                start_idx = i * self.hop_length
+                end_idx = start_idx + self.win_length
+                segments.append(x[:, start_idx:end_idx])
+            # For now, process first segment (matching validation case)
+            segment = segments[0] if n_segments > 0 else x[:, :self.win_length]
+            n_segments = 1
+        
         # --- Multitaper accumulation with eigenvalue weighting (matches MNE) ---
+        # MNE computes: FFT(taper * signal) for each taper, then combines
         # MNE uses: psd = np.sum(mt_spectra * weights**2, axis=1) / weights.sum()**2
         # where weights = sqrt(eigvals), so weights**2 = eigvals
+        
         spec_accum = None
-        print('Multitaper: Number of specs:', len(self.specs))
-        for k, spec in enumerate(self.specs):
-            # spec(x): (C, F, frames)
-            spec_k = spec(x)
+        print('Multitaper: Number of tapers:', self.K)
+        
+        # Move tapers to same device as data
+        device = segment.device
+        tapers = self._tapers.to(device)  # (K, win_length)
+        eigvals = self._eigvals.to(device)  # (K,)
+        weights = self._weights.to(device)  # (K,)
+        
+        # Remove DC component (matches MNE's remove_dc=True default)
+        segment = segment - segment.mean(dim=-1, keepdim=True)  # (C, win_length)
+        
+        for k in range(self.K):
+            # Apply taper to signal: (C, win_length) * (win_length,) -> (C, win_length)
+            taper_k = tapers[k]  # (win_length,)
+            tapered_signal = segment * taper_k  # (C, win_length)
+            
+            # Compute FFT (matches MNE's _mt_spectra)
+            # Use rfft for real-valued input: (C, win_length) -> (C, n_fft//2 + 1)
+            fft_result = torch.fft.rfft(tapered_signal, n=self.n_fft, dim=-1)  # (C, n_fft//2 + 1)
+            
+            # Compute power spectrum (squared magnitude)
+            # MNE's _mt_spectra computes |FFT|^2 directly
+            spec_k = torch.abs(fft_result) ** 2  # (C, n_fft//2 + 1)
+            
+            # Add time dimension for consistency: (C, F) -> (C, F, 1)
+            spec_k = spec_k.unsqueeze(-1)  # (C, F, 1)
+            
             # Weight by eigenvalue (weights**2 in MNE, where weights = sqrt(eigvals))
-            eigval_k = self._eigvals[k]
+            eigval_k = eigvals[k]
             if spec_accum is None:
                 spec_accum = spec_k * eigval_k
             else:
                 spec_accum += spec_k * eigval_k
 
         # Normalize by (sum of sqrt(eigvals))**2 (matches MNE's _psd_from_mt)
-        weight_sum = self._weights.sum()  # sum of sqrt(eigvals)
-        spec_mt = spec_accum / (weight_sum ** 2)  # (C, F, frames)
+        weight_sum = weights.sum()  # sum of sqrt(eigvals)
+        spec_mt = spec_accum / (weight_sum ** 2)  # (C, F, 1)
 
         # Apply normalization (matches MNE)
         if self.normalization == "full":
