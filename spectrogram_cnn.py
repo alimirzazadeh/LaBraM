@@ -1558,11 +1558,10 @@ if __name__ == "__main__":
     multitaper_results = validate_multitaper_against_mne()
     print(multitaper_results)
     
-    print((multitaper_results['psd_mne'] - multitaper_results['psd_ours']) / multitaper_results['psd_mne'])
-    import scipy.stats
-    print(scipy.stats.pearsonr(multitaper_results['psd_mne'], multitaper_results['psd_ours']))
+    # print((multitaper_results['psd_mne'] - multitaper_results['psd_ours']) / multitaper_results['psd_mne'])
+    # import scipy.stats
+    # print(scipy.stats.pearsonr(multitaper_results['psd_mne'], multitaper_results['psd_ours']))
     
-    bp() 
     welch_results = validate_welch_against_mne()
     print(welch_results)
     
@@ -1578,7 +1577,7 @@ if __name__ == "__main__":
         NW=3.5,
     )
     
-    bp() 
+    # bp() 
     # trainset = TUEVBaselineDataset(mode='train', window_length=5, resolution=0.2)
     # aa = trainset[0]
     # trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
