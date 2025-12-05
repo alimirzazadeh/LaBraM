@@ -969,19 +969,19 @@ def compare_compute_times(
     torch.manual_seed(42)
     start = time.perf_counter()
     for _ in range(n_iterations):
-        _ = spec_transform_timing(x_torch_win)  # Uses win_length segment
+        out = spec_transform_timing(x_torch_win)  # Uses win_length segment
     end = time.perf_counter()
     results['SpectrogramTransform'] = (end - start) / n_iterations
-    
+    print('Shape of SpectrogramTransform output:', out.shape)
     # 2. WelchSpectrogramTransform (our custom) - uses win_length segment
     torch.cuda.empty_cache() if torch.cuda.is_available() else None
     torch.manual_seed(42)
     start = time.perf_counter()
     for _ in range(n_iterations):
-        _ = welch_transform(x_torch_win)  # Uses win_length segment
+        out = welch_transform(x_torch_win)  # Uses win_length segment
     end = time.perf_counter()
     results['WelchSpectrogramTransform'] = (end - start) / n_iterations
-    
+    print('Shape of WelchSpectrogramTransform output:', out.shape)
     # 3. MultitaperSpectrogramTransform (our custom) - uses win_length segment
     torch.cuda.empty_cache() if torch.cuda.is_available() else None
     torch.manual_seed(42)
@@ -989,14 +989,14 @@ def compare_compute_times(
     x_torch_2d_win = x_torch_win.T  # (win_length, C)
     start = time.perf_counter()
     for _ in range(n_iterations):
-        _ = mt_transform(x_torch_2d_win)  # (T, C) with win_length
+        out = mt_transform(x_torch_2d_win)  # (T, C) with win_length
     end = time.perf_counter()
     results['MultitaperSpectrogramTransform'] = (end - start) / n_iterations
-    
+    print('Shape of MultitaperSpectrogramTransform output:', out.shape)
     # 4. MNE Welch - uses win_length segment
     start = time.perf_counter()
     for _ in range(n_iterations):
-        _, _ = psd_array_welch(
+        out, _ = psd_array_welch(
             x_np_win,  # (n_channels, win_length)
             sfreq=fs,
             fmin=min_freq,
@@ -1008,13 +1008,14 @@ def compare_compute_times(
             window='hann',
             verbose=False,
         )
+    print('Shape of MNE Welch output:', out.shape)
     end = time.perf_counter()
     results['MNE_Welch'] = (end - start) / n_iterations
     
     # 5. MNE Multitaper - uses win_length segment
     start = time.perf_counter()
     for _ in range(n_iterations):
-        _, _ = psd_array_multitaper(
+        out, _ = psd_array_multitaper(
             x_np_win,  # (n_channels, win_length)
             sfreq=fs,
             fmin=min_freq,
@@ -1025,6 +1026,7 @@ def compare_compute_times(
             normalization="full",
             verbose=False,
         )
+    print('Shape of MNE Multitaper output:', out.shape)
     end = time.perf_counter()
     results['MNE_Multitaper'] = (end - start) / n_iterations
     
