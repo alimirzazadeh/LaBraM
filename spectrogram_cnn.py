@@ -572,12 +572,9 @@ class MultitaperSpectrogramTransform:
         # where weights = sqrt(eigvals), so weights**2 = eigvals
         weight_sum = weights.sum()  # sum of sqrt(eigvals)
         spec_mt = spec_accum / (weight_sum ** 2)  # (C, F, 1)
-        
-        # MNE normalizes by n_fft in the FFT computation or after combining
-        # Standard PSD normalization: divide by n_fft to get power per frequency bin
-        spec_mt = spec_mt / self.n_fft  # (C, F, 1)
 
         # Apply normalization (matches MNE)
+        # MNE divides by sfreq when normalization="full"
         if self.normalization == "full":
             spec_mt = spec_mt / self.fs
 
