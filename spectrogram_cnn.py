@@ -1786,15 +1786,32 @@ if __name__ == "__main__":
     # print(timing_results)
     
     # bp() 
-    trainset = TUEVBaselineDataset(mode='train', window_length=5, resolution=0.2)
-    aa = trainset[0]
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
-    model = SpectrogramCNN(model='conv1d', num_classes=6)
-    model2 = SpectrogramCNN(model='conv2d', num_classes=6)
-    for X, Y in trainloader:
-        bp() 
-        output = model(X)
-        output2 = model2(X)
-        bp() 
-        print(output.shape, output2.shape, Y)
-        break
+    ## window_length=5, resolution=0.2, stride_length=1, multitaper=False, bandwidth=2.0):
+    test_cases = [
+        {'window_length': 5, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
+        {'window_length': 3, 'resolution': 0.2, 'stride_length': 3, 'multitaper': False, 'bandwidth': -1},
+        {'window_length': 3, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
+        {'window_length': 1, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
+        
+        {'window_length': 5, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
+        {'window_length': 3, 'resolution': 0.2, 'stride_length': 3, 'multitaper': True, 'bandwidth': 1.0},
+        {'window_length': 3, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0},
+        {'window_length': 1, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
+    ]
+    for test_case in test_cases:
+        trainset = TUEVBaselineDataset(mode='train', **test_case)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
+        aa = next(iter(trainloader))
+        print(test_case)
+        print('Shape of aa: ', aa[0].shape)
+    
+    ##
+    # model = SpectrogramCNN(model='conv1d', num_classes=6)
+    # model2 = SpectrogramCNN(model='conv2d', num_classes=6)
+    # for X, Y in trainloader:
+    #     bp() 
+    #     output = model(X)
+    #     output2 = model2(X)
+    #     bp() 
+    #     print(output.shape, output2.shape, Y)
+    #     break
