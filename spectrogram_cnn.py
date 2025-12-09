@@ -19,6 +19,7 @@ from mne.time_frequency import psd_array_welch, psd_array_multitaper
 import time
 from scipy.fft import rfftfreq, rfft
 from scipy.signal.windows import dpss as sp_dpss
+import matplotlib.pyplot as plt
 
 
 """ 
@@ -388,6 +389,7 @@ def our_psd_array_multitaper(
         n_times, sfreq, bandwidth, low_bias, adaptive
     )
     n_tapers = len(dpss)
+    print('Number of tapers:', n_tapers)
     weights = np.sqrt(eigvals)[np.newaxis, :, np.newaxis]
 
     # decide which frequencies to keep
@@ -842,8 +844,7 @@ class MultitaperSpectrogramTransform:
         min_freq=0,
         max_freq=32,
         resolution_factor=1,
-        NW=3.5,
-        K=None,
+        bandwidth=2.0,
         center=True,
         normalization="full",
         device=None,
@@ -887,7 +888,8 @@ class MultitaperSpectrogramTransform:
         self.min_freq = min_freq
         self.max_freq = max_freq
         self.resolution_factor = resolution_factor
-        self.NW = NW
+        self.bandwidth = bandwidth #NW * fs / win_length
+        self.NW = bandwidth * win_length / fs
         self.center = center
         self.normalization = normalization
         self.n_fft = n_fft
@@ -895,10 +897,11 @@ class MultitaperSpectrogramTransform:
 
         # Use MNE's _compute_mt_params to get tapers and eigenvalues (exact match)
         # Compute bandwidth from NW: bandwidth = NW * fs / win_length
-        bandwidth = NW * fs / win_length
+        
         dpss_np, eigvals_np, _ = _compute_mt_params(
             win_length, fs, bandwidth, low_bias=True, adaptive=False
         )
+        
         
         self.K = len(eigvals_np)
         
@@ -954,17 +957,17 @@ class MultitaperSpectrogramTransform:
         x = data.T  # (C, T)
         C, T = x.shape
         
-        # Process each segment (for hop_length < win_length, we'd have multiple segments)
+        # Calculate number of segments based on hop_length
         if T < self.win_length:
             # Pad if needed
             x_padded = F.pad(x, (0, self.win_length - T), mode='constant', value=0)
-            segment = x_padded[:, :self.win_length]
+            n_segments = 1
         else:
-            # Calculate number of segments and process first segment
-            segment = x[:, :self.win_length]
+            n_segments = (T - self.win_length) // self.hop_length + 1
+            x_padded = None  # Not needed
         
-        device = segment.device
-        dtype = segment.dtype
+        device = x.device
+        dtype = x.dtype
         
         # Move pre-computed tensors to data device (only once per device)
         # This is much faster than converting numpy->torch on each call
@@ -973,64 +976,79 @@ class MultitaperSpectrogramTransform:
         freq_mask = self._freq_mask.to(device=device)  # (n_freqs,)
         sqrt_2 = self._sqrt_2.to(device=device, dtype=dtype)
         
-        # Remove DC component in torch (no CPU-GPU transfer)
-        # segment: (C, win_length)
-        segment = segment - segment.mean(dim=-1, keepdim=True)  # (C, win_length)
+        segment_specs = []
         
-        # VECTORIZED FFT COMPUTATION (major speedup)
-        # Instead of looping over channels, reshape to process all at once
-        # segment: (C, win_length) -> (C, 1, win_length)
-        # dpss: (K, win_length) -> (1, K, win_length)
-        # Broadcast: (C, K, win_length)
-        segment_expanded = segment.unsqueeze(1)  # (C, 1, win_length)
-        dpss_expanded = dpss.unsqueeze(0)  # (1, K, win_length)
-        tapered = segment_expanded * dpss_expanded  # (C, K, win_length)
+        # Process each segment
+        for i in range(n_segments):
+            start_idx = i * self.hop_length
+            end_idx = start_idx + self.win_length
+            
+            if T < self.win_length:
+                # Use padded data
+                segment = x_padded[:, :self.win_length]
+            else:
+                segment = x[:, start_idx:end_idx]
+            
+            # Remove DC component in torch (no CPU-GPU transfer)
+            # segment: (C, win_length)
+            segment = segment - segment.mean(dim=-1, keepdim=True)  # (C, win_length)
+            
+            # VECTORIZED FFT COMPUTATION (major speedup)
+            # Instead of looping over channels, reshape to process all at once
+            # segment: (C, win_length) -> (C, 1, win_length)
+            # dpss: (K, win_length) -> (1, K, win_length)
+            # Broadcast: (C, K, win_length)
+            segment_expanded = segment.unsqueeze(1)  # (C, 1, win_length)
+            dpss_expanded = dpss.unsqueeze(0)  # (1, K, win_length)
+            tapered = segment_expanded * dpss_expanded  # (C, K, win_length)
+            
+            # Reshape for batched FFT: (C*K, win_length)
+            C_seg, K, win_len = tapered.shape
+            tapered_flat = tapered.reshape(C_seg * K, win_len)  # (C*K, win_length)
+            
+            # Single batched FFT for all channels and tapers (much faster than loop)
+            x_mt_flat = torch.fft.rfft(tapered_flat, n=self._n_fft_mt, dim=-1)  # (C*K, n_freqs) complex
+            
+            # Reshape back: (C, K, n_freqs)
+            x_mt = x_mt_flat.reshape(C_seg, K, self._n_freqs)  # (C, K, n_freqs) complex
+            
+            # Adjust DC and Nyquist (matches MNE's _mt_spectra exactly)
+            x_mt[:, :, 0] = x_mt[:, :, 0] / sqrt_2
+            if self._n_fft_mt % 2 == 0:
+                x_mt[:, :, -1] = x_mt[:, :, -1] / sqrt_2
+            
+            # Apply frequency mask using torch indexing (faster than numpy mask)
+            x_mt_masked = x_mt[:, :, freq_mask]  # (C, K, n_freqs_masked)
+            
+            # Use MNE's _psd_from_mt logic with torch operations
+            # Convert weights to complex for multiplication with complex x_mt
+            weights_complex = weights.to(torch.complex64)  # (K,) complex
+            weights_expanded = weights_complex.view(1, -1, 1)  # (1, K, 1) complex
+            
+            # _psd_from_mt: psd = weights * x_mt
+            psd = weights_expanded * x_mt_masked  # (C, K, n_freqs_masked) complex
+            
+            # psd *= psd.conj() to get |weights * x_mt|^2
+            psd = psd * psd.conj()  # (C, K, n_freqs_masked) complex
+            psd = psd.real  # (C, K, n_freqs_masked) real
+            
+            # Sum over tapers (axis=1, which is -2 in MNE's notation)
+            psd = psd.sum(dim=1)  # (C, n_freqs_masked)
+            
+            # Normalize using pre-computed weight_norm (major speedup)
+            psd = psd * (2.0 / self._weight_norm)  # (C, n_freqs_masked)
+            
+            # Apply normalization using pre-computed factor
+            if self.normalization == "full":
+                psd = psd * self._norm_factor
+            
+            # Log-power
+            psd = torch.log(psd + 1.0)  # (C, n_freqs_masked)
+            
+            segment_specs.append(psd)  # (C, n_freqs_masked)
         
-        # Reshape for batched FFT: (C*K, win_length)
-        C, K, win_len = tapered.shape
-        tapered_flat = tapered.reshape(C * K, win_len)  # (C*K, win_length)
-        
-        # Single batched FFT for all channels and tapers (much faster than loop)
-        x_mt_flat = torch.fft.rfft(tapered_flat, n=self._n_fft_mt, dim=-1)  # (C*K, n_freqs) complex
-        
-        # Reshape back: (C, K, n_freqs)
-        x_mt = x_mt_flat.reshape(C, K, self._n_freqs)  # (C, K, n_freqs) complex
-        
-        # Adjust DC and Nyquist (matches MNE's _mt_spectra exactly)
-        x_mt[:, :, 0] = x_mt[:, :, 0] / sqrt_2
-        if self._n_fft_mt % 2 == 0:
-            x_mt[:, :, -1] = x_mt[:, :, -1] / sqrt_2
-        
-        # Apply frequency mask using torch indexing (faster than numpy mask)
-        x_mt_masked = x_mt[:, :, freq_mask]  # (C, K, n_freqs_masked)
-        
-        # Use MNE's _psd_from_mt logic with torch operations
-        # Convert weights to complex for multiplication with complex x_mt
-        weights_complex = weights.to(torch.complex64)  # (K,) complex
-        weights_expanded = weights_complex.view(1, -1, 1)  # (1, K, 1) complex
-        
-        # _psd_from_mt: psd = weights * x_mt
-        psd = weights_expanded * x_mt_masked  # (C, K, n_freqs_masked) complex
-        
-        # psd *= psd.conj() to get |weights * x_mt|^2
-        psd = psd * psd.conj()  # (C, K, n_freqs_masked) complex
-        psd = psd.real  # (C, K, n_freqs_masked) real
-        
-        # Sum over tapers (axis=1, which is -2 in MNE's notation)
-        psd = psd.sum(dim=1)  # (C, n_freqs_masked)
-        
-        # Normalize using pre-computed weight_norm (major speedup)
-        psd = psd * (2.0 / self._weight_norm)  # (C, n_freqs_masked)
-        
-        # Add time dimension: (C, F) -> (C, F, 1)
-        spec_mt = psd.unsqueeze(-1)  # (C, F_masked, 1)
-
-        # Apply normalization using pre-computed factor
-        if self.normalization == "full":
-            spec_mt = spec_mt * self._norm_factor
-
-        # Log-power
-        spec_mt = torch.log(spec_mt + 1.0)
+        # Stack all segments along time dimension
+        spec_mt = torch.stack(segment_specs, dim=-1)  # (C, n_freqs_masked, n_segments)
 
         # Optional pooling along frequency axis
         if self.resolution_factor > 1:
@@ -1055,6 +1073,7 @@ class MultitaperSpectrogramTransform:
 class SpectrogramTransform:
     def __init__(self, fs=200, resolution=0.1, win_length=1000, hop_length=1000, pad=0, min_freq=0, max_freq=32, resolution_factor=1):
         n_fft = int(fs / resolution)
+        self.n_fft = n_fft
         self.fs = fs
         self.resolution = resolution
         self.win_length = win_length
@@ -1063,8 +1082,8 @@ class SpectrogramTransform:
         self.min_freq = min_freq
         self.max_freq = max_freq
         self.resolution_factor = resolution_factor
-        
-        self.spec = Spectrogram(n_fft=n_fft, win_length=win_length, hop_length=hop_length, pad=pad, power=2, center=True)
+        self.num_paddings = self.n_fft - self.win_length if self.win_length < self.n_fft else 0
+        self.spec = Spectrogram(n_fft=n_fft, win_length=win_length, hop_length=hop_length, pad=self.num_paddings//2, power=2, center=False)  
         self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
         self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs <= self.max_freq)
     
@@ -1077,7 +1096,41 @@ class SpectrogramTransform:
             Tensor: Spectrogram 
         """
         # Convert PIL Image to tensor if needed
-        spec = self.spec(data.T)
+        data = data.T
+        if self.win_length < data.shape[1]:
+            ## pad each side 
+            middle_idx = data.shape[1] // 2
+            counter = middle_idx % self.hop_length
+            counter -= self.win_length // 2
+            counter *= -1 
+            if counter < 0:
+                counter = 0
+            # print('Shape of data: ', data.shape)
+            # print(f'Paddying left and right by {counter / self.fs:.2f}s')
+            
+            x_padded = F.pad(data, (counter, counter), mode="reflect")
+            # print('Shape of x_padded: ', x_padded.shape)
+            data = x_padded
+            
+            data = data.unfold(dimension=1, size=self.win_length, step=self.hop_length)
+            
+            # data = data.reshape(-1, data.shape[1])
+        # if self.win_length < self.n_fft:
+            
+            ## add zeros to the right 
+            # print(f'Paddying right by {num_paddings} samples')
+            # data = F.pad(data, (0, num_paddings), mode="constant", value=0)
+        # print('Shape of data: ', data.shape)
+
+        try:
+            spec = self.spec(data).squeeze(-1)
+            if len(spec.shape) < 3:
+                spec = spec.unsqueeze(1)
+            spec = spec.transpose(1, 2)
+        except Exception as e:
+            print(f'Error in spectrogram: {e}')
+            bp()
+        # print('Shape of spectrogram: ', spec.shape)
         ## take the log
         spec = torch.log(spec + 1)
         spec = spec[:,self.freq_mask,:]
@@ -1127,7 +1180,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         return X, Y
 
 class TUEVBaselineDataset(torch.utils.data.Dataset):
-    def __init__(self, mode='train', window_length=5, resolution=0.2, stride_length=1):
+    def __init__(self, mode='train', window_length=5, resolution=0.2, stride_length=1, multitaper=False, bandwidth=2.0):
         assert mode in ['train','val','test']
         self.mode = mode
         if self.mode == 'val':
@@ -1141,7 +1194,12 @@ class TUEVBaselineDataset(torch.utils.data.Dataset):
         self.min_freq = 0
         self.max_freq = 32
         self.fs=200
-        self.spec_transform = SpectrogramTransform(
+        if multitaper:
+            self.spec_transform = MultitaperSpectrogramTransform(
+                fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
+                min_freq=self.min_freq, max_freq=self.max_freq, bandwidth=bandwidth)
+        else:
+            self.spec_transform = SpectrogramTransform(
                 fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
                 min_freq=self.min_freq, max_freq=self.max_freq) #pad=self.fs * self.window_length // 2, 
     def __len__(self):
@@ -1280,7 +1338,7 @@ def validate_welch_against_mne(
 def validate_multitaper_against_mne(
     win_length: int = 1000,
     fs: float = 200.0,
-    NW: float = 3.5,
+    bandwidth: float = 1.0,
     min_freq: float = 0.0,
     max_freq: float = 32.0,
 ):
@@ -1310,8 +1368,7 @@ def validate_multitaper_against_mne(
         min_freq=min_freq,
         max_freq=max_freq,
         resolution_factor=1,
-        NW=NW,
-        K=None,                  # uses K = int(2*NW - 1)
+        bandwidth=bandwidth,
         center=False,            # avoid torchaudio centering/padding
         normalization="full",    # matches MNE default
     )
@@ -1329,13 +1386,13 @@ def validate_multitaper_against_mne(
     # MNE uses a 'bandwidth' in Hz. For DPSS:
     #   time-bandwidth NW = T_sec * bandwidth_Hz
     # → bandwidth_Hz = NW / T_sec = NW * fs / win_length
-    bandwidth_hz = NW * fs / win_length
+
     psd_mne, freqs_mne = psd_array_multitaper(
         x_np[np.newaxis, :],    # shape (n_epochs=1, n_times)
         sfreq=fs,
         fmin=min_freq,
         fmax=max_freq,
-        bandwidth=bandwidth_hz,
+        bandwidth=bandwidth,
         adaptive=False,
         low_bias=True,
         normalization="full",
@@ -1362,7 +1419,7 @@ def validate_multitaper_against_mne(
 
     print(f"Max abs diff (after normalization): {max_abs_diff:.3e}")
     print(f"Relative L2 error (after normalization): {l2_diff:.3e}")
-
+    print('Correlation between MNE and our multitaper: ', np.corrcoef(psd_mne_norm, mt_psd_norm)[0, 1])
     # Optionally return values for plotting/debugging
     return {
         "freqs": freqs_mne,
@@ -1383,7 +1440,7 @@ def compare_compute_times(
     resolution: float = 0.2,
     min_freq: float = 0.0,
     max_freq: float = 32.0,
-    NW: float = 3.5,
+    bandwidth: float = 1.0,
 ):
     """
     Compare compute times between different spectrogram methods.
@@ -1396,7 +1453,7 @@ def compare_compute_times(
         resolution: Frequency resolution (Hz)
         min_freq: Minimum frequency to keep
         max_freq: Maximum frequency to keep
-        NW: Time-bandwidth product for multitaper
+        bandwidth: Bandwidth for multitaper
     
     Returns:
         Dictionary with timing results for each method
@@ -1448,15 +1505,14 @@ def compare_compute_times(
         min_freq=min_freq,
         max_freq=max_freq,
         resolution_factor=1,
-        NW=NW,
-        K=None,
+        bandwidth=bandwidth,
         center=False,
         normalization="full",  # matches MNE default
     )
     
     # MNE settings (n_fft already calculated above)
     n_per_seg = win_length
-    bandwidth_hz = NW * fs / win_length
+    bandwidth_hz = bandwidth 
     
     results = {}
     
@@ -1553,40 +1609,192 @@ def compare_compute_times(
     
     return results
 
+def visualize_comparison(file):
+    """
+    Load a random 2 min segment from EEG data and visualize three spectrogram methods side by side.
+    
+    Args:
+        file: Path to h5 file containing EEG data
+    """
+    fs = 200  # sampling rate
+    
+    if file.endswith('.h5'):
+        segment_length_samples = 2 * 60 * fs  # 2 minutes in samples = 24000
+        h5file = h5py.File(file, 'r')
+        
+        # Get the data - assuming structure like f['recording']['data'] with shape (time, channels)
+        if 'recording' in h5file:
+            data = h5file['recording']['data'][:]  # (time, channels)
+        else:
+            # Try to find first subject/group with 'eeg' or 'data' key
+            first_key = list(h5file.keys())[0]
+            if 'eeg' in h5file[first_key]:
+                data = h5file[first_key]['eeg'][:]  # (channels, time) - need to transpose
+                data = data.T  # (time, channels)
+            elif 'data' in h5file[first_key]:
+                data = h5file[first_key]['data'][:]  # (time, channels)
+            else:
+                raise ValueError("Could not find 'data' or 'eeg' in h5 file structure")
+        
+        # Close the file
+        h5file.close()
+    elif file.endswith('.pkl'):
+        with open(file, 'rb') as f:
+            data = pickle.load(f)
+            data = data['signal'].T
+            segment_length_samples = 5 * fs  # 2 minutes in samples = 24000
+    else:
+        raise ValueError(f"Unsupported file extension: {file}")
+    
+    # Parameters
+    
+    
+    
+    # Check if we have enough data
+    if data.shape[0] < segment_length_samples:
+        raise ValueError(f"Data length ({data.shape[0]}) is less than required 2 min segment ({segment_length_samples} samples)")
+    
+    # Get random start index
+    max_start = data.shape[0] - segment_length_samples
+    start_idx = random.randint(0, max_start)
+    
+    # Extract 2 min segment: (time, channels)
+    segment = data[start_idx:start_idx + segment_length_samples, :]
+    
+    # Convert to torch tensors
+    # For normal spec and welch: need (channels, time)
+    segment_ct = torch.from_numpy(segment.T).float()  # (channels, time)
+    
+    # For multitaper: need (time, channels)
+    segment_tc = torch.from_numpy(segment).float()  # (time, channels)
+    
+    # Initialize transforms
+    resolution = 0.1
+    win_length = 200  # 5 seconds at 200 Hz
+    hop_length = 200  # non-overlapping
+    
+    # Normal spectrogram
+    spec_transform = SpectrogramTransform(
+        fs=fs, resolution=resolution, win_length=win_length, 
+        hop_length=hop_length, pad=0, min_freq=0, max_freq=32
+    )
+    now = time.time()
+    spec_normal = spec_transform(segment_ct.T)  # (channels, freqs, time)
+    print(f"Time taken for normal spectrogram: {time.time() - now} seconds")
+    # # Welch spectrogram
+    # welch_transform = WelchSpectrogramTransform(
+    #     fs=fs, resolution=resolution, win_length=win_length//5,
+    #     hop_length=hop_length//5, pad=0, min_freq=0, max_freq=32
+    # )
+    # spec_welch = welch_transform(segment_ct)  # (channels, freqs, time)
+    
+    # Multitaper spectrogram
+    specs = {} 
+    specs_hop = {}
+    specs_hop_mt = {}
+    mt_bandwidths = [1.0, 2.0, 4.0]
+    mt_hop_lengths = [1*fs,2*fs,3*fs, 5*fs]
+    for bandwidth in mt_bandwidths:
+        mt_transform = MultitaperSpectrogramTransform(
+            fs=fs, resolution=resolution, win_length=win_length,
+            hop_length=hop_length, pad=0, min_freq=0, max_freq=32,
+            bandwidth=bandwidth, normalization="full",
+        )
+        now = time.time()
+        spec_multitaper = mt_transform(segment_tc)  # (channels, freqs, time)
+        spec_multitaper_np = spec_multitaper[0].detach().cpu().numpy()  # (freqs, time)
+        print(f"Time taken for bandwidth {bandwidth}: {time.time() - now} seconds")
+        specs[bandwidth] = {'spec': spec_multitaper_np.copy(), 'K': mt_transform.K, 'bandwidth': mt_transform.bandwidth}
+    # Convert to numpy for plotting (first channel)
+    spec_normal_np = spec_normal[0].detach().cpu().numpy()  # (freqs, time)
+    # Create figure with 3 subplots side by side
+    fig, axes = plt.subplots(1, len(mt_bandwidths) + 1, figsize=(18, 5))
+    
+    # Helper function to create time and frequency axes for each spectrogram
+    def plot_spectrogram(ax, spec_data, title, vmax=None):
+        n_freq_bins, n_time_bins = spec_data.shape
+        print(n_freq_bins, n_time_bins)
+        # Time axis: each bin represents hop_length/fs seconds
+        # For pcolormesh with shading='auto', we need edges (n_bins + 1 points)
+        time_edges = np.arange(n_time_bins + 1) * (hop_length / fs)
+        # Frequency axis: 0-32 Hz (edges)
+        freq_edges = np.linspace(0, 32, n_freq_bins + 1)
+        
+        im = ax.pcolormesh(time_edges, freq_edges, spec_data, cmap='jet', shading='auto', vmax=vmax)
+        ax.set_title(title, fontsize=14)
+        ax.set_xlabel('Time (s)', fontsize=12)
+        ax.set_ylabel('Frequency (Hz)', fontsize=12)
+        plt.colorbar(im, ax=ax)
+        return im
+    
+    # Plot each spectrogram
+    plot_spectrogram(axes[0], spec_normal_np, 'Normal Spectrogram', vmax=22)
+    # plot_spectrogram(axes[1], spec_welch_np, 'Welch Spectrogram')
+    for i, bandwidth in enumerate(sorted(specs.keys())):
+        plot_spectrogram(axes[i + 1], specs[bandwidth]['spec'], f'Multitaper {specs[bandwidth]["K"]} Tapers {specs[bandwidth]["bandwidth"]:.1f} BW')
+    
+    for i, hop_length in enumerate(mt_hop_lengths):
+        mt_transform = MultitaperSpectrogramTransform(
+            fs=fs, resolution=resolution, win_length=win_length,
+            hop_length=hop_length, pad=0, min_freq=0, max_freq=32,
+            bandwidth=1.0, normalization="full",
+        )
+        spec_transform = SpectrogramTransform(
+            fs=fs, resolution=resolution, win_length=win_length,
+            hop_length=hop_length, pad=0, min_freq=0, max_freq=32,
+        )
+        spec_transform_np = spec_transform(segment_ct.T)  # (channels, freqs, time)
+        spec_transform_np = spec_transform_np[0].detach().cpu().numpy()  # (freqs, time)
+        specs_hop[hop_length] = {'spec': spec_transform_np.copy()}
+        now = time.time()
+        spec_multitaper = mt_transform(segment_tc)  # (channels, freqs, time)
+        spec_multitaper_np = spec_multitaper[0].detach().cpu().numpy()  # (freqs, time)
+        specs_hop_mt[hop_length] = {'spec': spec_multitaper_np.copy(), 'K': mt_transform.K, 'bandwidth': mt_transform.bandwidth}
+    fig, axs = plt.subplots(2, len(mt_hop_lengths), figsize=(18, 10))
+    for i, hop_length in enumerate(sorted(specs_hop.keys())):
+        plot_spectrogram(axs[0, i], specs_hop[hop_length]['spec'], f"Spec Hop Len {hop_length/fs:.2f}s, shape {specs_hop[hop_length]['spec'].shape}")
+        plot_spectrogram(axs[1, i], specs_hop_mt[hop_length]['spec'], f'Multitaper {specs_hop_mt[hop_length]["K"]} Tapers {specs_hop_mt[hop_length]["bandwidth"]:.1f} BW')
+    plt.tight_layout()
+    plt.show()
+    
+    return fig
 
 if __name__ == "__main__":
-    multitaper_results = validate_multitaper_against_mne()
-    print(multitaper_results)
+    # visualize_comparison('sample_eeg/aaaaabor_00000011-16.pkl') #sub-S0001122302611_ses-2_preprocessed-eeg.h5')
     
-    # print((multitaper_results['psd_mne'] - multitaper_results['psd_ours']) / multitaper_results['psd_mne'])
-    # import scipy.stats
-    # print(scipy.stats.pearsonr(multitaper_results['psd_mne'], multitaper_results['psd_ours']))
+    # multitaper_results = validate_multitaper_against_mne()
+
     
-    welch_results = validate_welch_against_mne()
-    print(welch_results)
+    # # print((multitaper_results['psd_mne'] - multitaper_results['psd_ours']) / multitaper_results['psd_mne'])
+    # # import scipy.stats
+    # # print(scipy.stats.pearsonr(multitaper_results['psd_mne'], multitaper_results['psd_ours']))
+    
+    # welch_results = validate_welch_against_mne()
+    # print(welch_results)
     
     # Compare compute times
-    timing_results = compare_compute_times(
-        win_length=1000,
-        fs=200.0,
-        n_channels=23,
-        n_iterations=100,
-        resolution=0.2,
-        min_freq=0.0,
-        max_freq=32.0,
-        NW=3.5,
-    )
+    # timing_results = compare_compute_times(
+    #     win_length=1000,
+    #     fs=200.0,
+    #     n_channels=23,
+    #     n_iterations=100,
+    #     resolution=0.2,
+    #     min_freq=0.0,
+    #     max_freq=32.0,
+    #     bandwidth=4.0,
+    # )
+    # print(timing_results)
     
     # bp() 
-    # trainset = TUEVBaselineDataset(mode='train', window_length=5, resolution=0.2)
-    # aa = trainset[0]
-    # trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
-    # model = SpectrogramCNN(model='conv1d', num_classes=6)
-    # model2 = SpectrogramCNN(model='conv2d', num_classes=6)
-    # for X, Y in trainloader:
-    #     bp() 
-    #     output = model(X)
-    #     output2 = model2(X)
-    #     bp() 
-    #     print(output.shape, output2.shape, Y)
-    #     break
+    trainset = TUEVBaselineDataset(mode='train', window_length=5, resolution=0.2)
+    aa = trainset[0]
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
+    model = SpectrogramCNN(model='conv1d', num_classes=6)
+    model2 = SpectrogramCNN(model='conv2d', num_classes=6)
+    for X, Y in trainloader:
+        bp() 
+        output = model(X)
+        output2 = model2(X)
+        bp() 
+        print(output.shape, output2.shape, Y)
+        break
