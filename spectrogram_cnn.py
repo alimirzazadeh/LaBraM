@@ -955,6 +955,21 @@ class MultitaperSpectrogramTransform:
 
         # (C, T) for processing
         x = data.T  # (C, T)
+        
+        if self.hop_length < x.shape[1]:#self.win_length < data.shape[1]:
+            ## pad each side 
+            middle_idx = x.shape[1] // 2
+            counter = middle_idx % self.hop_length
+            counter -= self.win_length // 2
+            counter *= -1 
+            if counter < 0:
+                counter = 0
+            # print('Shape of data: ', data.shape)
+            # print(f'Paddying left and right by {counter / self.fs:.2f}s')
+            
+            x = torch.nn.functional.pad(x, (counter, counter), mode="reflect")
+        
+        
         C, T = x.shape
         
         # Calculate number of segments based on hop_length
@@ -1097,7 +1112,7 @@ class SpectrogramTransform:
         """
         # Convert PIL Image to tensor if needed
         data = data.T
-        if self.win_length < data.shape[1]:
+        if self.hop_length < data.shape[1]:#self.win_length < data.shape[1]:
             ## pad each side 
             middle_idx = data.shape[1] // 2
             counter = middle_idx % self.hop_length
@@ -1670,7 +1685,7 @@ def visualize_comparison(file):
     
     # Initialize transforms
     resolution = 0.1
-    win_length = 200  # 5 seconds at 200 Hz
+    win_length = 1000  # 5 seconds at 200 Hz
     hop_length = 200  # non-overlapping
     
     # Normal spectrogram
@@ -1713,7 +1728,7 @@ def visualize_comparison(file):
     # Helper function to create time and frequency axes for each spectrogram
     def plot_spectrogram(ax, spec_data, title, vmax=None):
         n_freq_bins, n_time_bins = spec_data.shape
-        print(n_freq_bins, n_time_bins)
+        # print(n_freq_bins, n_time_bins)
         # Time axis: each bin represents hop_length/fs seconds
         # For pcolormesh with shading='auto', we need edges (n_bins + 1 points)
         time_edges = np.arange(n_time_bins + 1) * (hop_length / fs)
@@ -1789,6 +1804,9 @@ if __name__ == "__main__":
     ## window_length=5, resolution=0.2, stride_length=1, multitaper=False, bandwidth=2.0):
     test_cases = [
         {'window_length': 5, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
+        {'window_length': 5, 'resolution': 0.2, 'stride_length': 2, 'multitaper': False, 'bandwidth': -1},
+        {'window_length': 5, 'resolution': 0.2, 'stride_length': 4, 'multitaper': False, 'bandwidth': -1},
+        {'window_length': 5, 'resolution': 0.2, 'stride_length': 5, 'multitaper': False, 'bandwidth': -1},
         {'window_length': 3, 'resolution': 0.2, 'stride_length': 3, 'multitaper': False, 'bandwidth': -1},
         {'window_length': 3, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
         {'window_length': 1, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
