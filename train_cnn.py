@@ -188,6 +188,7 @@ def main(args):
     window_length = args.window_length
     resolution = args.resolution
     exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}_window_{window_length}_resolution_{resolution}_resolutionfactor_{args.resolution_factor}_stride_{args.stride_length}_bw_{args.bandwidth}_{'multitaper' if args.multitaper else 'stft'}'
+    print(exp_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(log_dir=f'/data/scratch/alimirz/2025/EEG_FM/TUEV/{exp_name}')
     if args.dataset == 'TUAB':
