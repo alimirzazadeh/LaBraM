@@ -1624,6 +1624,14 @@ def compare_compute_times(
     
     return results
 
+def load_h5(file):
+    fs = 200  # sampling rate
+    
+    h5file = h5py.File(file, 'r')
+    data = h5file['recording']['data'][:]  # (time, channels)
+    data = data.T  # (time, channels)
+    h5file.close()
+    return data
 def visualize_comparison(file):
     """
     Load a random 2 min segment from EEG data and visualize three spectrogram methods side by side.
@@ -1774,13 +1782,27 @@ def visualize_comparison(file):
     
     return fig
 
+def get_multitaper_shapes(file, fs, resolution, win_length, hop_length, min_freq, max_freq, bandwidth, data_length=200 * 60 ):
+    data = load_h5(file)
+    data = data[:data_length, :]
+    mt_transform = MultitaperSpectrogramTransform(
+        fs=fs, resolution=resolution, win_length=win_length,
+        hop_length=hop_length, pad=0, min_freq=min_freq, max_freq=32,
+        bandwidth=bandwidth, normalization="full",
+    )
+    spec_multitaper = mt_transform(data)  # (channels, freqs, time)
+    print('Data is of length (seconds): ', data.shape[0] / fs)
+    print('Spec is of shape: ', spec_multitaper.shape)
+
 if __name__ == "__main__":
     # visualize_comparison('sample_eeg/aaaaabor_00000011-16.pkl') #sub-S0001122302611_ses-2_preprocessed-eeg.h5')
     # visualize_comparison('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5')
 
     # multitaper_results = validate_multitaper_against_mne()
-
-    
+    get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 1000, 200, 0, 32, 1.0)
+    get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 1000, 200, 0, 32, 1.0, data_length=200 * 47)
+    get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 800, 200, 0, 32, 1.0)
+    bp() 
     # # print((multitaper_results['psd_mne'] - multitaper_results['psd_ours']) / multitaper_results['psd_mne'])
     # # import scipy.stats
     # # print(scipy.stats.pearsonr(multitaper_results['psd_mne'], multitaper_results['psd_ours']))
