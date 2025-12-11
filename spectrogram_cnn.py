@@ -1776,7 +1776,8 @@ def visualize_comparison(file):
 
 if __name__ == "__main__":
     # visualize_comparison('sample_eeg/aaaaabor_00000011-16.pkl') #sub-S0001122302611_ses-2_preprocessed-eeg.h5')
-    
+    # visualize_comparison('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5')
+
     # multitaper_results = validate_multitaper_against_mne()
 
     
@@ -1803,19 +1804,22 @@ if __name__ == "__main__":
     # bp() 
     ## window_length=5, resolution=0.2, stride_length=1, multitaper=False, bandwidth=2.0):
     test_cases = [
-        {'window_length': 5, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
-        {'window_length': 5, 'resolution': 0.2, 'stride_length': 2, 'multitaper': False, 'bandwidth': -1},
-        {'window_length': 5, 'resolution': 0.2, 'stride_length': 4, 'multitaper': False, 'bandwidth': -1},
-        {'window_length': 5, 'resolution': 0.2, 'stride_length': 5, 'multitaper': False, 'bandwidth': -1},
-        {'window_length': 3, 'resolution': 0.2, 'stride_length': 3, 'multitaper': False, 'bandwidth': -1},
-        {'window_length': 3, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
-        {'window_length': 1, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
-        
         {'window_length': 5, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
-        {'window_length': 3, 'resolution': 0.2, 'stride_length': 3, 'multitaper': True, 'bandwidth': 1.0},
-        {'window_length': 3, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0},
-        {'window_length': 1, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
+        {'window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
     ]
+    #     {'window_length': 5, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
+    #     {'window_length': 5, 'resolution': 0.2, 'stride_length': 2, 'multitaper': False, 'bandwidth': -1},
+    #     {'window_length': 5, 'resolution': 0.2, 'stride_length': 4, 'multitaper': False, 'bandwidth': -1},
+    #     {'window_length': 5, 'resolution': 0.2, 'stride_length': 5, 'multitaper': False, 'bandwidth': -1},
+    #     {'window_length': 3, 'resolution': 0.2, 'stride_length': 3, 'multitaper': False, 'bandwidth': -1},
+    #     {'window_length': 3, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
+    #     {'window_length': 1, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
+        
+    #     {'window_length': 5, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
+    #     {'window_length': 3, 'resolution': 0.2, 'stride_length': 3, 'multitaper': True, 'bandwidth': 1.0},
+    #     {'window_length': 3, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0},
+    #     {'window_length': 1, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
+    # ]
     for test_case in test_cases:
         trainset = TUEVBaselineDataset(mode='train', **test_case)
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
