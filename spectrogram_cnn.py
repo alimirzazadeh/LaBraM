@@ -966,7 +966,7 @@ class MultitaperSpectrogramTransform:
                 counter = 0
             # print('Shape of data: ', data.shape)
             # print(f'Paddying left and right by {counter / self.fs:.2f}s')
-            
+            print('T before padding: ', x.shape[1])
             x = torch.nn.functional.pad(x, (counter, counter), mode="reflect")
         
         
@@ -975,10 +975,14 @@ class MultitaperSpectrogramTransform:
         # Calculate number of segments based on hop_length
         if T < self.win_length:
             # Pad if needed
-            x_padded = F.pad(x, (0, self.win_length - T), mode='constant', value=0)
+            x_padded = torch.nn.functional.pad(x, (0, self.win_length - T), mode='constant', value=0)
             n_segments = 1
         else:
+            print('T: ', T)
+            print('win_length: ', self.win_length)
+            print('hop_length: ', self.hop_length)
             n_segments = (T - self.win_length) // self.hop_length + 1
+            print('n_segments: ', n_segments)
             x_padded = None  # Not needed
         
         device = x.device
@@ -1784,7 +1788,9 @@ def visualize_comparison(file):
 
 def get_multitaper_shapes(file, fs, resolution, win_length, hop_length, min_freq, max_freq, bandwidth, data_length=200 * 60 ):
     data = load_h5(file)
-    data = data[:data_length, :]
+    
+    data = data[:,:data_length]
+    data = torch.from_numpy(data.T).float()
     mt_transform = MultitaperSpectrogramTransform(
         fs=fs, resolution=resolution, win_length=win_length,
         hop_length=hop_length, pad=0, min_freq=min_freq, max_freq=32,
@@ -1801,6 +1807,7 @@ if __name__ == "__main__":
     # multitaper_results = validate_multitaper_against_mne()
     get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 1000, 200, 0, 32, 1.0)
     get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 1000, 200, 0, 32, 1.0, data_length=200 * 47)
+    get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 1000, 200, 0, 32, 1.0, data_length=200 * 48)
     get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 800, 200, 0, 32, 1.0)
     bp() 
     # # print((multitaper_results['psd_mne'] - multitaper_results['psd_ours']) / multitaper_results['psd_mne'])
