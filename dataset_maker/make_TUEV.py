@@ -147,8 +147,7 @@ def readEDF(fileName):
 def find_spec(fileName):
     edf_file = fileName.split('/')[-1]
     patient_id = edf_file.split('_')[0]
-    session_id = edf_file.split('_')[1]
-    bp()
+    session_id = edf_file.split('_')[1].split('.')[0]
     recon_dir = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUEV/reconstructions_2025-12-15T01-15-13_harvard_vqgan_2_embed32n8192corr01vqtorchema_patchgan_multitaper_128x128_8x16"
     peng_file_name = f"{patient_id}_ses-{patient_id}_{session_id}_preprocessed-eeg.npz" # aaaaabji_ses-aaaaabji_00000001_preprocessed-eeg.npz
     peng_file_path = os.path.join(recon_dir, peng_file_name)
@@ -173,7 +172,7 @@ def load_up_objects(BaseDir, Features, OffendingChannels, Labels, OutDir):
                     continue
                 bp() 
                 signals, offending_channels, labels = BuildEvents(signals, times, event)
-
+                print('original signal length',signals.shape[1] / 200, spec_true.shape, spec_recon.shape)
                 for idx, (signal, offending_channel, label) in enumerate(
                     zip(signals, offending_channels, labels)
                 ):
@@ -182,12 +181,12 @@ def load_up_objects(BaseDir, Features, OffendingChannels, Labels, OutDir):
                         "offending_channel": offending_channel,
                         "label": label,
                     }
-                    save_pickle(
-                        sample,
-                        os.path.join(
-                            OutDir, fname.split(".")[0] + "-" + str(idx) + ".pkl"
-                        ),
-                    )
+                    # save_pickle(
+                    #     sample,
+                    #     os.path.join(
+                    #         OutDir, fname.split(".")[0] + "-" + str(idx) + ".pkl"
+                    #     ),
+                    # )
 
     return Features, Labels, OffendingChannels
 
