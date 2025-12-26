@@ -170,16 +170,17 @@ def load_up_objects(BaseDir, Features, OffendingChannels, Labels, OutDir):
                 except (ValueError, KeyError):
                     print("something funky happened in " + dirName + "/" + fname)
                     continue
-                bp() 
+
                 import h5py
                 pid = fname.split('_')[0]
                 session = fname.split('_')[1].split('.')[0]
                 other_root_dir = f'/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUEV/{pid}_ses-{pid}_{session}_preprocessed-eeg.h5'
                 h5file = h5py.File(other_root_dir, 'r')
                 other_signals = h5file['recording']['data'][:]  # (time, channels)
-                print('other signal length',other_signals.shape[1] / 200)
+                print('other signal length',other_signals.shape[0] / 200)
             
                 print('original signal length',signals.shape[1] / 200, spec_true.shape, spec_recon.shape)
+                bp() 
                 signals, offending_channels, labels = BuildEvents(signals, times, event)
                 for idx, (signal, offending_channel, label) in enumerate(
                     zip(signals, offending_channels, labels)
