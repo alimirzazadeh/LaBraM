@@ -171,8 +171,8 @@ def load_up_objects(BaseDir, Features, OffendingChannels, Labels, OutDir):
                     print("something funky happened in " + dirName + "/" + fname)
                     continue
                 bp() 
-                signals, offending_channels, labels = BuildEvents(signals, times, event)
                 print('original signal length',signals.shape[1] / 200, spec_true.shape, spec_recon.shape)
+                signals, offending_channels, labels = BuildEvents(signals, times, event)
                 for idx, (signal, offending_channel, label) in enumerate(
                     zip(signals, offending_channels, labels)
                 ):
