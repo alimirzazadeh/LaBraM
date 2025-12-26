@@ -50,7 +50,6 @@ class MultitaperSpectrogramTransform:
     def __init__(
         self,
         fs=200,
-        resolution=0.1,
         win_length=1000,
         hop_length=1000,
         pad=0,
@@ -61,6 +60,7 @@ class MultitaperSpectrogramTransform:
         center=True,
         normalization="full",
         device=None,
+        return_trimmed=True,
     ):
         """
         Multitaper spectrogram using DPSS tapers and PyTorch FFT.
@@ -91,10 +91,8 @@ class MultitaperSpectrogramTransform:
             normalization: "length" or "full" (matches MNE). If "full", divides by sfreq.
             device: device to store pre-computed tensors on (None = CPU, will move to data device)
         """
-        n_fft = int(fs / resolution)
 
         self.fs = fs
-        self.resolution = resolution
         self.win_length = win_length
         self.hop_length = hop_length
         self.pad = pad
@@ -105,7 +103,7 @@ class MultitaperSpectrogramTransform:
         self.NW = bandwidth * win_length / fs
         self.center = center
         self.normalization = normalization
-        self.n_fft = n_fft
+        self.return_trimmed = return_trimmed
         self.device = device  # Store device preference
 
         # Use MNE's _compute_mt_params to get tapers and eigenvalues (exact match)
@@ -134,7 +132,7 @@ class MultitaperSpectrogramTransform:
         # Frequency axis (matches MNE's rfftfreq - uses signal length, not n_fft)
         # MNE uses: freqs = rfftfreq(n_times, 1.0 / sfreq) where n_times = win_length
         freqs_np = rfftfreq(win_length, 1.0 / fs)
-        freq_mask_np = (freqs_np >= min_freq) & (freqs_np <= max_freq)
+        freq_mask_np = (freqs_np >= min_freq) & (freqs_np < max_freq)
         
         # Pre-compute frequency mask as torch tensor
         self._freq_mask = torch.from_numpy(freq_mask_np.copy()).bool()  # (n_freqs,)
@@ -388,7 +386,10 @@ class MultitaperSpectrogramTransform:
                 C, F_new, self.resolution_factor, T_frames
             ).mean(dim=2)  # (C, F_new, T_frames)
 
-        return spec_mt
+        if self.return_trimmed and spec_mt.shape[2] > 1:
+            return spec_mt[:, :, :-1]
+        else:
+            return spec_mt
 
     def __repr__(self):
         return (

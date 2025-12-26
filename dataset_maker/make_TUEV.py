@@ -8,6 +8,7 @@ import mne
 import numpy as np
 import os
 import pickle
+from ipdb import set_trace as bp
 from tqdm import tqdm
 
 """
@@ -143,7 +144,18 @@ def readEDF(fileName):
     Rawdata.close()
     return [signals, times, eventData, Rawdata]
 
-
+def find_spec(fileName):
+    edf_file = fileName.split('/')[-1]
+    patient_id = edf_file.split('_')[0]
+    session_id = edf_file.split('_')[1]
+    bp()
+    recon_dir = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUEV/reconstructions_2025-12-15T01-15-13_harvard_vqgan_2_embed32n8192corr01vqtorchema_patchgan_multitaper_128x128_8x16"
+    peng_file_name = f"{patient_id}_ses-{patient_id}_{session_id}_preprocessed-eeg.npz" # aaaaabji_ses-aaaaabji_00000001_preprocessed-eeg.npz
+    peng_file_path = os.path.join(recon_dir, peng_file_name)
+    peng_data = np.load(peng_file_path)
+    spec_true = peng_data['original']
+    spec_recon = peng_data['reconstruction']
+    return spec_true, spec_recon
 def load_up_objects(BaseDir, Features, OffendingChannels, Labels, OutDir):
     for dirName, subdirList, fileList in tqdm(os.walk(BaseDir)):
         print("Found directory: %s" % dirName)
@@ -155,9 +167,11 @@ def load_up_objects(BaseDir, Features, OffendingChannels, Labels, OutDir):
                         dirName + "/" + fname
                     )  # event is the .rec file in the form of an array
                     #signals = convert_signals(signals, Rawdata)
+                    spec_true, spec_recon = find_spec(dirName + "/" + fname)
                 except (ValueError, KeyError):
                     print("something funky happened in " + dirName + "/" + fname)
                     continue
+                bp() 
                 signals, offending_channels, labels = BuildEvents(signals, times, event)
 
                 for idx, (signal, offending_channel, label) in enumerate(
