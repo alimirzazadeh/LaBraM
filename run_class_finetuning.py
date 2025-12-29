@@ -492,19 +492,22 @@ def main(args, ds_init):
             
         if data_loader_val is not None:
             val_stats = evaluate(data_loader_val, model, device, header='Val:', ch_names=ch_names, metrics=metrics, is_binary=args.nb_classes == 1)
-            print(f"Accuracy of the network on the {len(dataset_val)} val EEG: {val_stats['accuracy']:.2f}%")
+            print(f"BalancedAccuracy of the network on the {len(dataset_val)} val EEG: {val_stats['balanced_accuracy']:.2f}%")
+            print(f"AUROC of the network on the {len(dataset_val)} val EEG: {val_stats['roc_auc']:.2f}%")
+            print(f"AUPRC of the network on the {len(dataset_val)} val EEG: {val_stats['pr_auc']:.2f}%")
             test_stats = evaluate(data_loader_test, model, device, header='Test:', ch_names=ch_names, metrics=metrics, is_binary=args.nb_classes == 1)
-            print(f"Accuracy of the network on the {len(dataset_test)} test EEG: {test_stats['accuracy']:.2f}%")
-            
-            if max_accuracy < val_stats["accuracy"]:
-                max_accuracy = val_stats["accuracy"]
+            print(f"BalancedAccuracy of the network on the {len(dataset_test)} test EEG: {test_stats['balanced_accuracy']:.2f}%")
+            print(f"AUROC of the network on the {len(dataset_test)} test EEG: {test_stats['roc_auc']:.2f}%")
+            print(f"AUPRC of the network on the {len(dataset_test)} test EEG: {test_stats['pr_auc']:.2f}%")
+            if max_accuracy < val_stats["balanced_accuracy"]:
+                max_accuracy = val_stats["balanced_accuracy"]
                 if args.output_dir and args.save_ckpt:
                     utils.save_model(
                         args=args, model=model, model_without_ddp=model_without_ddp, optimizer=optimizer,
                         loss_scaler=loss_scaler, epoch="best", model_ema=model_ema)
-                max_accuracy_test = test_stats["accuracy"]
+                max_accuracy_test = test_stats["balanced_accuracy"]
 
-            print(f'Max accuracy val: {max_accuracy:.2f}%, max accuracy test: {max_accuracy_test:.2f}%')
+            print(f'Max balanced accuracy val: {max_accuracy:.2f}%, max balanced accuracy test: {max_accuracy_test:.2f}%')
             if log_writer is not None:
                 for key, value in val_stats.items():
                     if key == 'accuracy':
