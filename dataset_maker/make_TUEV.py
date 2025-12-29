@@ -36,8 +36,8 @@ def BuildEvents(signals, times, EventData, spec_true=None, spec_recon=None):
     if spec_true is not None:
         spec_recon = np.concatenate([spec_recon, spec_recon, spec_recon], axis=-1)
         spec_true = np.concatenate([spec_true, spec_true, spec_true], axis=-1)
-        features_spec_true = np.zeros([numEvents, numChan, spec_true.shape[1], 5])
-        features_spec_recon = np.zeros([numEvents, numChan, spec_recon.shape[1], 5])
+        features_spec_true = np.zeros([numEvents, spec_true.shape[0], spec_true.shape[1], 5])
+        features_spec_recon = np.zeros([numEvents, spec_recon.shape[0], spec_recon.shape[1], 5])
 
     signals = np.concatenate([signals, signals, signals], axis=1)
     for i in range(numEvents):  # for each event
