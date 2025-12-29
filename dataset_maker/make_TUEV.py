@@ -34,7 +34,6 @@ def BuildEvents(signals, times, EventData, spec_true=None, spec_recon=None):
     labels = np.zeros([numEvents, 1])
     offset = signals.shape[1]
     if spec_true is not None:
-        offset_spec = spec_true.shape[-1]
         spec_recon = np.concatenate([spec_recon, spec_recon, spec_recon], axis=-1)
         spec_true = np.concatenate([spec_true, spec_true, spec_true], axis=-1)
         features_spec_true = np.zeros([numEvents, numChan, spec_true.shape[1], 5])
@@ -50,8 +49,8 @@ def BuildEvents(signals, times, EventData, spec_true=None, spec_recon=None):
             :, offset + start - 2 * int(fs) : offset + end + 2 * int(fs)
         ]
         if spec_true is not None:
-            features_spec_true[i, :, :, :] = spec_true[i, :, offset_spec + start - 2 : offset_spec + end + 2]
-            features_spec_recon[i, :, :, :] = spec_recon[i, :, offset_spec + start - 2 : offset_spec + end + 2]
+            features_spec_true[i, :, :, :] = spec_true[i, :, ((offset + start) // fs) - 2 : ((offset + end) // fs) + 2]
+            features_spec_recon[i, :, :, :] = spec_recon[i, :, ((offset + start) // fs) - 2 : ((offset + end) // fs) + 2]
         offending_channel[i, :] = int(chan)
         labels[i, :] = int(EventData[i, 3])
     if spec_true is not None:
