@@ -216,10 +216,10 @@ def load_up_objects_with_spec(BaseDir, Features, OffendingChannels, Labels, OutD
                 print('other signal length',other_signals.shape[0] / 200)
                 
                 print('original signal length',signals.shape[1] / 200, spec_true.shape, spec_recon.shape)
-                bp() 
-                if spec_true.shape[0] != other_signals.shape[0]:
-                    other_signals = other_signals[:-200]
-                
+                if spec_true.shape[-1] != signals.shape[1] // 200:
+                    ## add one to the end of the spec_true
+                    spec_true = np.concatenate([spec_true, spec_true[:, :, -1:]], axis=-1)
+                assert spec_true.shape[-1] == signals.shape[1] // 200
                 signals, offending_channels, labels = BuildEvents(signals, times, event, spec_true, spec_recon)
                 for idx, (signal, offending_channel, label) in enumerate(
                     zip(signals, offending_channels, labels)
