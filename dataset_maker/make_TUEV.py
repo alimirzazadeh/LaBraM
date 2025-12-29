@@ -49,6 +49,7 @@ def BuildEvents(signals, times, EventData, spec_true=None, spec_recon=None):
             :, offset + start - 2 * int(fs) : offset + end + 2 * int(fs)
         ]
         if spec_true is not None:
+            bp() 
             features_spec_true[i, :, :, :] = spec_true[i, :, int((offset + start) // fs) - 2 : int((offset + end) // fs) + 2]
             features_spec_recon[i, :, :, :] = spec_recon[i, :, int((offset + start) // fs) - 2 : int((offset + end) // fs) + 2]
         offending_channel[i, :] = int(chan)
