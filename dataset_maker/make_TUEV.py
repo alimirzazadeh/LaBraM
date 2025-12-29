@@ -241,7 +241,6 @@ def load_up_objects_with_spec(BaseDir, Features, OffendingChannels, Labels, OutD
                         "offending_channel": offending_channel,
                         "label": label,
                     }
-                    bp() 
                     save_pickle(
                         sample,
                         os.path.join(
@@ -262,8 +261,8 @@ TUEV dataset is downloaded from https://isip.piconepress.com/projects/tuh_eeg/ht
 """
 
 root = "/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf"
-train_out_dir = os.path.join(root, "processed_train")
-eval_out_dir = os.path.join(root, "processed_eval")
+train_out_dir = os.path.join(root, "processed_train_with_spec")
+eval_out_dir = os.path.join(root, "processed_eval_with_spec")
 
 if not os.path.exists(train_out_dir):
     os.makedirs(train_out_dir)
