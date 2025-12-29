@@ -33,7 +33,13 @@ def BuildEvents(signals, times, EventData, spec_true=None, spec_recon=None):
     offending_channel = np.zeros([numEvents, 1])  # channel that had the detected thing
     labels = np.zeros([numEvents, 1])
     offset = signals.shape[1]
-    bp() 
+    if spec_true is not None:
+        offset_spec = spec_true.shape[-1]
+        spec_recon = np.concatenate([spec_recon, spec_recon, spec_recon], axis=-1)
+        spec_true = np.concatenate([spec_true, spec_true, spec_true], axis=-1)
+        features_spec_true = np.zeros([numEvents, numChan, spec_true.shape[1], 5])
+        features_spec_recon = np.zeros([numEvents, numChan, spec_recon.shape[1], 5])
+
     signals = np.concatenate([signals, signals, signals], axis=1)
     for i in range(numEvents):  # for each event
         chan = int(EventData[i, 0])  # chan is channel
@@ -43,8 +49,13 @@ def BuildEvents(signals, times, EventData, spec_true=None, spec_recon=None):
         features[i, :] = signals[
             :, offset + start - 2 * int(fs) : offset + end + 2 * int(fs)
         ]
+        if spec_true is not None:
+            features_spec_true[i, :, :, :] = spec_true[i, :, :, offset_spec + start - 2 : offset_spec + end + 2]
+            features_spec_recon[i, :, :, :] = spec_recon[i, :, :, offset_spec + start - 2 : offset_spec + end + 2]
         offending_channel[i, :] = int(chan)
         labels[i, :] = int(EventData[i, 3])
+    if spec_true is not None:
+        return [features, offending_channel, labels, features_spec_true, features_spec_recon]
     return [features, offending_channel, labels]
 
 
@@ -220,23 +231,24 @@ def load_up_objects_with_spec(BaseDir, Features, OffendingChannels, Labels, OutD
                     ## add one to the end of the spec_true
                     spec_true = np.concatenate([spec_true, spec_true[:, :, -1:]], axis=-1)
                 assert spec_true.shape[-1] == signals.shape[1] // 200
-                signals, offending_channels, labels = BuildEvents(signals, times, event, spec_true, spec_recon)
-                for idx, (signal, offending_channel, label) in enumerate(
-                    zip(signals, offending_channels, labels)
+                signals, offending_channels, labels, features_spec_true, features_spec_recon = BuildEvents(signals, times, event, spec_true, spec_recon)
+                for idx, (signal, offending_channel, label, features_spec_true, features_spec_recon) in enumerate(
+                    zip(signals, offending_channels, labels, features_spec_true, features_spec_recon)
                 ):
                     sample = {
                         "signal": signal,
-                        "spec_true": spec_true,
-                        "spec_recon": spec_recon,
+                        "spec_true": features_spec_true,
+                        "spec_recon": features_spec_recon,
                         "offending_channel": offending_channel,
                         "label": label,
                     }
-                    # save_pickle(
-                    #     sample,
-                    #     os.path.join(
-                    #         OutDir, fname.split(".")[0] + "-" + str(idx) + ".pkl"
-                    #     ),
-                    # )
+                    bp() 
+                    save_pickle(
+                        sample,
+                        os.path.join(
+                            OutDir, fname.split(".")[0] + "-" + str(idx) + ".pkl"
+                        ),
+                    )
 
     return Features, Labels, OffendingChannels
 
