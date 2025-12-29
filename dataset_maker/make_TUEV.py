@@ -22,7 +22,7 @@ chOrder_standard = ['EEG FP1-REF', 'EEG FP2-REF', 'EEG F3-REF', 'EEG F4-REF', 'E
                     'EEG F8-REF', 'EEG T3-REF', 'EEG T4-REF', 'EEG T5-REF', 'EEG T6-REF', 'EEG A1-REF', 'EEG A2-REF', 'EEG FZ-REF', 'EEG CZ-REF', 'EEG PZ-REF', 'EEG T1-REF', 'EEG T2-REF']
 
 
-def BuildEvents(signals, times, EventData):
+def BuildEvents(signals, times, EventData, spec_true=None, spec_recon=None):
     [numEvents, z] = EventData.shape  # numEvents is equal to # of rows of the .rec file
     fs = 200.0
     [numChan, numPoints] = signals.shape
@@ -33,6 +33,7 @@ def BuildEvents(signals, times, EventData):
     offending_channel = np.zeros([numEvents, 1])  # channel that had the detected thing
     labels = np.zeros([numEvents, 1])
     offset = signals.shape[1]
+    bp() 
     signals = np.concatenate([signals, signals, signals], axis=1)
     for i in range(numEvents):  # for each event
         chan = int(EventData[i, 0])  # chan is channel
@@ -167,27 +168,66 @@ def load_up_objects(BaseDir, Features, OffendingChannels, Labels, OutDir):
                         dirName + "/" + fname
                     )  # event is the .rec file in the form of an array
                     #signals = convert_signals(signals, Rawdata)
-                    spec_true, spec_recon = find_spec(dirName + "/" + fname)
                 except (ValueError, KeyError):
                     print("something funky happened in " + dirName + "/" + fname)
                     continue
 
-                import h5py
-                pid = fname.split('_')[0]
-                session = fname.split('_')[1].split('.')[0]
-                other_root_dir = f'/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUEV/{pid}_ses-{pid}_{session}_preprocessed-eeg.h5'
-                h5file = h5py.File(other_root_dir, 'r')
-                other_signals = h5file['recording']['data'][:]  # (time, channels)
-                print('other signal length',other_signals.shape[0] / 200)
-            
-                print('original signal length',signals.shape[1] / 200, spec_true.shape, spec_recon.shape)
-                bp() 
                 signals, offending_channels, labels = BuildEvents(signals, times, event)
                 for idx, (signal, offending_channel, label) in enumerate(
                     zip(signals, offending_channels, labels)
                 ):
                     sample = {
                         "signal": signal,
+                        "offending_channel": offending_channel,
+                        "label": label,
+                    }
+                    save_pickle(
+                        sample,
+                        os.path.join(
+                            OutDir, fname.split(".")[0] + "-" + str(idx) + ".pkl"
+                        ),
+                    )
+
+    return Features, Labels, OffendingChannels
+
+def load_up_objects_with_spec(BaseDir, Features, OffendingChannels, Labels, OutDir):
+    import h5py
+    for dirName, subdirList, fileList in tqdm(os.walk(BaseDir)):
+        print("Found directory: %s" % dirName)
+        for fname in fileList:
+            if fname[-4:] == ".edf":
+                print("\t%s" % fname)
+                try:
+                    [signals, times, event, Rawdata] = readEDF(
+                        dirName + "/" + fname
+                    )  # event is the .rec file in the form of an array
+                    #signals = convert_signals(signals, Rawdata)
+                    spec_true, spec_recon = find_spec(dirName + "/" + fname)
+                except (ValueError, KeyError):
+                    print("something funky happened in " + dirName + "/" + fname)
+                    continue
+
+                
+                pid = fname.split('_')[0]
+                session = fname.split('_')[1].split('.')[0]
+                other_root_dir = f'/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUEV/{pid}_ses-{pid}_{session}_preprocessed-eeg.h5'
+                h5file = h5py.File(other_root_dir, 'r')
+                other_signals = h5file['recording']['data'][:]  # (time, channels)
+                print('other signal length',other_signals.shape[0] / 200)
+                
+                print('original signal length',signals.shape[1] / 200, spec_true.shape, spec_recon.shape)
+                bp() 
+                if spec_true.shape[0] != other_signals.shape[0]:
+                    other_signals = other_signals[:-200]
+                
+                signals, offending_channels, labels = BuildEvents(signals, times, event, spec_true, spec_recon)
+                for idx, (signal, offending_channel, label) in enumerate(
+                    zip(signals, offending_channels, labels)
+                ):
+                    sample = {
+                        "signal": signal,
+                        "spec_true": spec_true,
+                        "spec_recon": spec_recon,
                         "offending_channel": offending_channel,
                         "label": label,
                     }
@@ -226,7 +266,7 @@ TrainFeatures = np.empty(
 )  # 0 for lack of intialization, 22 for channels, fs for num of points
 TrainLabels = np.empty([0, 1])
 TrainOffendingChannel = np.empty([0, 1])
-load_up_objects(
+load_up_objects_with_spec(
     BaseDirTrain, TrainFeatures, TrainLabels, TrainOffendingChannel, train_out_dir
 )
 
@@ -237,7 +277,7 @@ EvalFeatures = np.empty(
 )  # 0 for lack of intialization, 22 for channels, fs for num of points
 EvalLabels = np.empty([0, 1])
 EvalOffendingChannel = np.empty([0, 1])
-load_up_objects(
+load_up_objects_with_spec(
     BaseDirEval, EvalFeatures, EvalLabels, EvalOffendingChannel, eval_out_dir
 )
 
