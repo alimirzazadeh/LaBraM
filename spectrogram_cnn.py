@@ -547,7 +547,7 @@ class CustomResNet18(nn.Module):
         self.num_classes = num_classes
         if num_classes is not None:
             # Flatten 512*5*1 -> num_classes
-            self.fc = nn.Linear(512 * (self.data_length + 1), num_classes)
+            self.fc = nn.Linear(512 * (self.data_length), num_classes)
 
     def _make_layer(self, planes, blocks, stride_h, stride_w):
         """Create one ResNet-18 stage with arbitrary (stride_h, stride_w)."""
