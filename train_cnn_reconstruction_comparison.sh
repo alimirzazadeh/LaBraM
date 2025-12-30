@@ -1,0 +1,7 @@
+CUDA_VISIBLE_DEVICES=4,5,6,7 python train_cnn.py --dataset TUAB --model_type resnet --batch_size 128 --num_workers 4 --lr 1e-4 --epochs 10 --window_length 4 --resolution_factor 1 --stride_length 1 --multitaper True --bandwidth 2.0 
+CUDA_VISIBLE_DEVICES=4,5,6,7 python train_cnn.py --dataset TUAB --model_type resnet --batch_size 128 --num_workers 4 --lr 1e-4 --epochs 10 --window_length 4 --resolution_factor 1 --stride_length 1 --multitaper True --bandwidth 2.0 --load_spec_true True
+CUDA_VISIBLE_DEVICES=4,5,6,7 python train_cnn.py --dataset TUAB --model_type resnet --batch_size 128 --num_workers 4 --lr 1e-4 --epochs 10 --window_length 4 --resolution_factor 1 --stride_length 1 --multitaper True --bandwidth 2.0 --load_spec_recon True
+
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train_cnn.py --dataset TUEV --model_type resnet --batch_size 128 --num_workers 4 --lr 1e-4 --epochs 10 --window_length 4 --resolution_factor 1 --stride_length 1 --multitaper True --bandwidth 2.0 
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train_cnn.py --dataset TUEV --model_type resnet --batch_size 128 --num_workers 4 --lr 1e-4 --epochs 10 --window_length 4 --resolution_factor 1 --stride_length 1 --multitaper True --bandwidth 2.0 --load_spec_true True
+CUDA_VISIBLE_DEVICES=0,1,2,3 python train_cnn.py --dataset TUEV --model_type resnet --batch_size 128 --num_workers 4 --lr 1e-4 --epochs 10 --window_length 4 --resolution_factor 1 --stride_length 1 --multitaper True --bandwidth 2.0 --load_spec_recon True
