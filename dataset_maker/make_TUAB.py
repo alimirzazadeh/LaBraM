@@ -6,11 +6,12 @@
 # --------------------------------------------------------
 import os
 import pickle
-
+from ipdb import set_trace as bp
 from multiprocessing import Pool
 import numpy as np
 import mne
 
+WITH_SPEC = True
 
 drop_channels = ['PHOTIC-REF', 'IBI', 'BURSTS', 'SUPPR', 'EEG ROC-REF', 'EEG LOC-REF', 'EEG EKG1-REF', 'EMG-REF', 'EEG C3P-REF', 'EEG C4P-REF', 'EEG SP1-REF', 'EEG SP2-REF', \
                  'EEG LUC-REF', 'EEG RLC-REF', 'EEG RESP1-REF', 'EEG RESP2-REF', 'EEG EKG-REF', 'RESP ABDOMEN-REF', 'ECG EKG-REF', 'PULSE RATE', 'EEG PG2-REF', 'EEG PG1-REF']
@@ -40,6 +41,21 @@ standard_channels = [
     "EEG P4-REF",
     "EEG O2-REF",
 ]
+
+def find_spec(fileName):
+    edf_file = fileName.split('/')[-1]
+    patient_id = edf_file.split('_')[0]
+    session_id = edf_file[len(patient_id) + 1].strip('.edf')
+    bp() 
+    recon_dir = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUAB/reconstructions_2025-12-22T22-12-45_harvard_vqgan_2_embed32n8192corr01vqtorchema_patchgan_multitaper_128x128_8x16"
+    # aaaaamxe_ses-s001_t000_preprocessed-eeg.npz
+    # aaaaakyz_s007_t000.edf
+    peng_file_name = f"{patient_id}_ses-{session_id}_preprocessed-eeg.npz" # aaaaabji_ses-aaaaabji_00000001_preprocessed-eeg.npz
+    peng_file_path = os.path.join(recon_dir, peng_file_name)
+    peng_data = np.load(peng_file_path)
+    spec_true = peng_data['original']
+    spec_recon = peng_data['reconstruction']
+    return spec_true, spec_recon
 
 
 def split_and_dump(params):
@@ -72,14 +88,24 @@ def split_and_dump(params):
                 with open("tuab-process-error-files.txt", "a") as f:
                     f.write(file + "\n")
                 continue
+            
+            if WITH_SPEC:
+                spec_true, spec_recon = find_spec(file_path)
             for i in range(channeled_data.shape[1] // 2000):
                 dump_path = os.path.join(
                     dump_folder, file.split(".")[0] + "_" + str(i) + ".pkl"
                 )
-                pickle.dump(
-                    {"X": channeled_data[:, i * 2000 : (i + 1) * 2000], "y": label},
-                    open(dump_path, "wb"),
-                )
+                bp() 
+                if WITH_SPEC:
+                    pickle.dump(
+                        {"X": channeled_data[:, i * 2000 : (i + 1) * 2000], "y": label, "spec_true": spec_true[:, :, i * 10 : (i + 1) * 10], "spec_recon": spec_recon[:, :, i * 10 : (i + 1) * 10]},
+                        open(dump_path, "wb"),
+                    )
+                else:
+                    pickle.dump(
+                        {"X": channeled_data[:, i * 2000 : (i + 1) * 2000], "y": label},
+                        open(dump_path, "wb"),
+                    )
 
 
 if __name__ == "__main__":
@@ -87,9 +113,10 @@ if __name__ == "__main__":
     TUAB dataset is downloaded from https://isip.piconepress.com/projects/tuh_eeg/html/downloads.shtml
     """
     # root to abnormal dataset
-    root = "/data/netmit/sleep_lab/EEG_FM/TUEV/data/v3.0.1/edf" #"/data/netmit/wifall/clara/research2/v3.0.1/edf" #/userhome1/jiangweibang/Datasets/TUH_Abnormal/v3.0.0/edf/"
+    root = "/data/netmit/sleep_lab/EEG_FM/TUAB/data/v3.0.1/edf/" #"/data/netmit/wifall/clara/research2/v3.0.1/edf" #/userhome1/jiangweibang/Datasets/TUH_Abnormal/v3.0.0/edf/"
     channel_std = "01_tcp_ar"
 
+    
     # train, val abnormal subjects
     train_val_abnormal = os.path.join(root, "train", "abnormal", channel_std)
     train_val_a_sub = list(
@@ -123,18 +150,25 @@ if __name__ == "__main__":
     # create the train, val, test sample folder
     if not os.path.exists(os.path.join(root, "processed")):
         os.makedirs(os.path.join(root, "processed"))
+    if WITH_SPEC:
+        train_folder = "train_with_spec"
+        val_folder = "val_with_spec"
+        test_folder = "test_with_spec"
+    else:
+        train_folder = "train"
+        val_folder = "val"
+        test_folder = "test"
+    if not os.path.exists(os.path.join(root, "processed", train_folder)):
+        os.makedirs(os.path.join(root, "processed", train_folder))
+    train_dump_folder = os.path.join(root, "processed", train_folder)
 
-    if not os.path.exists(os.path.join(root, "processed", "train")):
-        os.makedirs(os.path.join(root, "processed", "train"))
-    train_dump_folder = os.path.join(root, "processed", "train")
+    if not os.path.exists(os.path.join(root, "processed", val_folder)):
+        os.makedirs(os.path.join(root, "processed", val_folder))
+    val_dump_folder = os.path.join(root, "processed", val_folder)
 
-    if not os.path.exists(os.path.join(root, "processed", "val")):
-        os.makedirs(os.path.join(root, "processed", "val"))
-    val_dump_folder = os.path.join(root, "processed", "val")
-
-    if not os.path.exists(os.path.join(root, "processed", "test")):
-        os.makedirs(os.path.join(root, "processed", "test"))
-    test_dump_folder = os.path.join(root, "processed", "test")
+    if not os.path.exists(os.path.join(root, "processed", test_folder)):
+        os.makedirs(os.path.join(root, "processed", test_folder))
+    test_dump_folder = os.path.join(root, "processed", test_folder)
 
     # fetch_folder, sub, dump_folder, labels
     parameters = []
