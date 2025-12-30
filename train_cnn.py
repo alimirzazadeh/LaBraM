@@ -3,7 +3,7 @@ from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
-from spectrogram_cnn import TUABBaselineDataset, SpectrogramCNN, TUEVBaselineDataset
+from spectrogram_cnn import TUABBaselineDataset, SpectrogramCNN, TUEVBaselineDataset, TUABBaselinePrecomputedDataset, TUEVBaselinePrecomputedDataset
 import torchmetrics
 from tqdm import tqdm
 from ipdb import set_trace as bp
@@ -191,14 +191,26 @@ def main(args):
     print(exp_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(log_dir=f'/data/scratch/alimirz/2025/EEG_FM/TUEV/{exp_name}')
-    if args.dataset == 'TUAB':
-        trainset = TUABBaselineDataset(mode='train', window_length=window_length, resolution=resolution)
-        valset = TUABBaselineDataset(mode='val', window_length=window_length, resolution=resolution)
-        testset = TUABBaselineDataset(mode='test', window_length=window_length, resolution=resolution)
-    elif args.dataset == 'TUEV':
-        trainset = TUEVBaselineDataset(mode='train', window_length=window_length, resolution=resolution, stride_length=args.stride_length)
-        valset = TUEVBaselineDataset(mode='val', window_length=window_length, resolution=resolution)
-        testset = TUEVBaselineDataset(mode='test', window_length=window_length, resolution=resolution)
+    
+    if args.load_spec_true or args.load_spec_recon:
+        if args.dataset == 'TUAB':
+            trainset = TUABBaselinePrecomputedDataset(mode='train', args.load_spec_true, args.load_spec_recon)
+            valset = TUABBaselinePrecomputedDataset(mode='val', args.load_spec_true, args.load_spec_recon)
+            testset = TUABBaselinePrecomputedDataset(mode='test', args.load_spec_true, args.load_spec_recon)
+        elif args.dataset == 'TUEV':
+            trainset = TUEVBaselinePrecomputedDataset(mode='train', args.load_spec_true, args.load_spec_recon)
+            valset = TUEVBaselinePrecomputedDataset(mode='val', args.load_spec_true, args.load_spec_recon)
+            testset = TUEVBaselinePrecomputedDataset(mode='test', args.load_spec_true, args.load_spec_recon)
+
+    else:
+        if args.dataset == 'TUAB':
+            trainset = TUABBaselineDataset(mode='train', window_length=window_length, resolution=resolution)
+            valset = TUABBaselineDataset(mode='val', window_length=window_length, resolution=resolution)
+            testset = TUABBaselineDataset(mode='test', window_length=window_length, resolution=resolution)
+        elif args.dataset == 'TUEV':
+            trainset = TUEVBaselineDataset(mode='train', window_length=window_length, resolution=resolution, stride_length=args.stride_length)
+            valset = TUEVBaselineDataset(mode='val', window_length=window_length, resolution=resolution)
+            testset = TUEVBaselineDataset(mode='test', window_length=window_length, resolution=resolution)
 
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
