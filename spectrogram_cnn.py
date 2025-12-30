@@ -394,7 +394,7 @@ def our_psd_array_multitaper(
 
     # decide which frequencies to keep
     freqs = rfftfreq(n_times, 1.0 / sfreq)
-    freq_mask = (freqs >= fmin) & (freqs <= fmax)
+    freq_mask = (freqs >= fmin) & (freqs < fmax)
     freqs = freqs[freq_mask]
     n_freqs = len(freqs)
 
@@ -781,7 +781,7 @@ class WelchSpectrogramTransform:
         self.spec = Spectrogram(n_fft=n_fft, win_length=win_length, hop_length=win_length, pad=0, power=2, center=False)
         
         self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
-        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs <= self.max_freq)
+        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs < self.max_freq)
     
     def __call__(self, data):
         """
@@ -921,7 +921,7 @@ class MultitaperSpectrogramTransform:
         # Frequency axis (matches MNE's rfftfreq - uses signal length, not n_fft)
         # MNE uses: freqs = rfftfreq(n_times, 1.0 / sfreq) where n_times = win_length
         freqs_np = rfftfreq(win_length, 1.0 / fs)
-        freq_mask_np = (freqs_np >= min_freq) & (freqs_np <= max_freq)
+        freq_mask_np = (freqs_np >= min_freq) & (freqs_np < max_freq)
         
         # Pre-compute frequency mask as torch tensor
         self._freq_mask = torch.from_numpy(freq_mask_np.copy()).bool()  # (n_freqs,)
@@ -1104,7 +1104,7 @@ class SpectrogramTransform:
         self.num_paddings = self.n_fft - self.win_length if self.win_length < self.n_fft else 0
         self.spec = Spectrogram(n_fft=n_fft, win_length=win_length, hop_length=hop_length, pad=self.num_paddings//2, power=2, center=False)  
         self.freqs = torch.linspace(0, fs / 2, n_fft // 2 + 1)
-        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs <= self.max_freq)
+        self.freq_mask = (self.freqs >= self.min_freq) & (self.freqs < self.max_freq)
     
     def __call__(self, data):
         """
@@ -1513,7 +1513,7 @@ def compare_compute_times(
     n_fft_timing = int(fs / resolution)
     spec_timing = Spectrogram(n_fft=n_fft_timing, win_length=win_length, hop_length=win_length, pad=0, power=2, center=False)
     freqs_timing = torch.linspace(0, fs / 2, n_fft_timing // 2 + 1)
-    freq_mask_timing = (freqs_timing >= min_freq) & (freqs_timing <= max_freq)
+    freq_mask_timing = (freqs_timing >= min_freq) & (freqs_timing < max_freq)
     
     # Create a simple wrapper function for timing (mimics SpectrogramTransform but with center=False)
     # Note: torchaudio Spectrogram expects (channels, time), and data is already (channels, time)
