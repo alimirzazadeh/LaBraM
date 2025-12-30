@@ -505,7 +505,7 @@ class CustomResNet18(nn.Module):
       4) Output features: [B, 512, 5, 1]
     """
 
-    def __init__(self, num_classes=None, dataset='TUAB'):
+    def __init__(self, num_classes=None, dataset='TUAB', num_channels=23):
         super().__init__()
         if dataset == 'TUAB':
             self.data_length = 10
@@ -515,7 +515,7 @@ class CustomResNet18(nn.Module):
             raise ValueError(f"Invalid dataset: {dataset}")
         # -------- 1D stem along height --------
         self.conv1d = nn.Conv1d(
-            in_channels=23,
+            in_channels=num_channels,
             out_channels=64,
             kernel_size=7,
             stride=2,
@@ -634,9 +634,9 @@ class SpectrogramCNN1D(nn.Module):
     - Passes through fully connected layers for classification
     """
     
-    def __init__(self, num_classes=1, dropout=0.3):
+    def __init__(self, num_classes=1, dropout=0.3, num_channels=23):
         super(SpectrogramCNN1D, self).__init__()
-        self.num_channels = 23
+        self.num_channels = num_channels
         self.num_time_steps = 6
         self.num_freq_bins = 150
         # 1D Convolutional layers (applied along frequency axis)
@@ -706,9 +706,9 @@ class SpectrogramCNN2D(nn.Module):
     - Global pooling and fully connected layers for classification
     """
     
-    def __init__(self, num_classes=1, dropout=0.3):
+    def __init__(self, num_classes=1, dropout=0.3, num_channels=23):
         super(SpectrogramCNN2D, self).__init__()
-        self.num_channels = 23
+        self.num_channels = num_channels
         self.num_freq_bins = 150
         self.num_time_steps = 6
         # 2D Convolutional layers
@@ -1251,18 +1251,18 @@ class TUEVBaselineDataset(torch.utils.data.Dataset):
         return X, Y
 
 class SpectrogramCNN(nn.Module):
-    def __init__(self, model='conv1d', num_classes=6, dataset='TUAB') -> None:
+    def __init__(self, model='conv1d', num_classes=6, dataset='TUAB', num_channels=23) -> None:
         super().__init__()
         assert model in ['conv1d','conv2d','resnet']
         
 
         self.model_type = model 
         if self.model_type == 'conv1d':
-            self.model = SpectrogramCNN1D(num_classes=num_classes)
+            self.model = SpectrogramCNN1D(num_classes=num_classes, num_channels=num_channels)
         elif self.model_type == 'conv2d':
-            self.model = SpectrogramCNN2D(num_classes=num_classes)
+            self.model = SpectrogramCNN2D(num_classes=num_classes, num_channels=num_channels)
         elif self.model_type == 'resnet':
-            self.model = CustomResNet18(num_classes=num_classes, dataset=dataset)
+            self.model = CustomResNet18(num_classes=num_classes, dataset=dataset, num_channels=num_channels)
         
     def preprocess_input(self,x):
         return self.spec_transform(x)

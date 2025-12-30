@@ -190,7 +190,7 @@ def main(args):
     exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}_window_{window_length}_resolution_{resolution}_resolutionfactor_{args.resolution_factor}_stride_{args.stride_length}_bw_{args.bandwidth}_{'multitaper' if args.multitaper else 'stft'}'
     print(exp_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    writer = SummaryWriter(log_dir=f'/data/scratch/alimirz/2025/EEG_FM/{args.dataset}/{exp_name}')
+    writer = SummaryWriter(log_dir=f'/data/scratch/alimirz/2025/EEG_FM/{args.dataset}_V2/{exp_name}')
     
     
     if args.dataset == 'TUAB':
@@ -205,7 +205,8 @@ def main(args):
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
     val_loader = DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    model = SpectrogramCNN(model=model_type, num_classes=num_classes, dataset=args.dataset)
+    num_channels = 19 if args.load_spec_true or args.load_spec_recon else 23
+    model = SpectrogramCNN(model=model_type, num_classes=num_classes, dataset=args.dataset, num_channels=num_channels)
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
