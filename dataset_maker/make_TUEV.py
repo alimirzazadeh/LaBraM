@@ -157,12 +157,17 @@ def readEDF(fileName):
 
 def find_spec(fileName, val=False):
     edf_file = fileName.split('/')[-1]
-    patient_id = edf_file.split('_')[0]
-    session_id = edf_file.split('_')[1].split('.')[0]
+    
+    if val:
+        patient_id = fileName.split('/')[-2]
+        session_id = edf_file.strip('.edf')
+    else:
+        patient_id = edf_file.split('_')[0]
+        session_id = edf_file.split('_')[1].split('.')[0]
     # recon_dir = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUEV/reconstructions_2025-12-15T01-15-13_harvard_vqgan_2_embed32n8192corr01vqtorchema_patchgan_multitaper_128x128_8x16"
     recon_dir = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUEV/reconstructions_2025-12-22T22-12-45_harvard_vqgan_2_embed32n8192corr01vqtorchema_patchgan_multitaper_128x128_8x16"
     if val:
-        bp() 
+        peng_file_name = f"{patient_id}_ses-{session_id}_preprocessed-eeg.npz"
     else:
         peng_file_name = f"{patient_id}_ses-{patient_id}_{session_id}_preprocessed-eeg.npz" # aaaaabji_ses-aaaaabji_00000001_preprocessed-eeg.npz
     peng_file_path = os.path.join(recon_dir, peng_file_name)
