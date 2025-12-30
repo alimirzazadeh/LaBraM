@@ -239,6 +239,8 @@ if __name__ == "__main__":
     parser.add_argument('--stride_length', type=int, default=1)
     parser.add_argument('--bandwidth', type=float, default=-1)
     parser.add_argument('--multitaper', type=bool, default=False)
+    parser.add_argument('--load_spec_true', type=bool, default=False)
+    parser.add_argument('--load_spec_recon', type=bool, default=False)
     args = parser.parse_args()
     args.resolution = 0.2
     main(args)
