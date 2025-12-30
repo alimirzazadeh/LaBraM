@@ -1207,7 +1207,6 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
             X = torch.from_numpy(X).float()
             X = self.spec_transform(X.T)
             # X2 = self.spec_transform(torch.from_numpy(sample["X"]).float().T)
-        bp() 
         Y = int(sample["y"])
         return X, Y
 
