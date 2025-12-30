@@ -1172,10 +1172,11 @@ class SpecNorm:
         return (data - self.mean_vector) / self.std_vector
 
 class TUABBaselineDataset(torch.utils.data.Dataset):
-    def __init__(self, mode='train', window_length=5, resolution=0.2):
+    def __init__(self, args, mode='train', window_length=5, resolution=0.2):
         assert mode in ['train','val','test']
         self.mode = mode
-        self.root = '/data/netmit/sleep_lab/EEG_FM/TUAB/data/v3.0.1/edf/processed/' + self.mode
+        self.args = args
+        self.root = '/data/netmit/sleep_lab/EEG_FM/TUAB/data/v3.0.1/edf/processed/' + self.mode + '_with_spec/'
         self.files = os.listdir(self.root)
         self.files = [f for f in self.files if f.endswith('.pkl')]
         self.resolution=resolution
@@ -1192,19 +1193,25 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         sample = pickle.load(open(os.path.join(self.root, self.files[index]), "rb"))
         
-        X = sample["X"]
+        if self.args.load_spec_true:
+            X = torch.from_numpy(sample["spec_true"]).float()
+        elif self.args.load_spec_recon:
+            X = torch.from_numpy(sample["spec_recon"]).float()
+        else:
+            X = sample["signal"]
+            X = torch.from_numpy(X).float()
+            X = self.spec_transform(X.T)
         Y = int(sample["y"])
-        X = torch.from_numpy(X).float()
-        X = self.spec_transform(X.T)
         return X, Y
 
 class TUEVBaselineDataset(torch.utils.data.Dataset):
-    def __init__(self, mode='train', window_length=5, resolution=0.2, stride_length=1, multitaper=False, bandwidth=2.0):
+    def __init__(self, args, mode='train', window_length=5, resolution=0.2, stride_length=1, multitaper=False, bandwidth=2.0):
         assert mode in ['train','val','test']
         self.mode = mode
+        self.args = args
         if self.mode == 'val':
             self.mode = 'eval'
-        self.root = '/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf/processed/processed_' + self.mode
+        self.root = '/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf/processed/processed_' + self.mode + '_with_spec/'
         self.files = os.listdir(self.root)
         self.files = [f for f in self.files if f.endswith('.pkl')]
         self.resolution=resolution
@@ -1225,10 +1232,15 @@ class TUEVBaselineDataset(torch.utils.data.Dataset):
         return len(self.files)
     def __getitem__(self, index):
         sample = pickle.load(open(os.path.join(self.root, self.files[index]), "rb"))
-        X = sample["signal"]
         Y = int(sample["label"][0] - 1)
-        X = torch.from_numpy(X).float()
-        X = self.spec_transform(X.T)
+        if self.args.load_spec_true:
+            X = torch.from_numpy(sample["spec_true"]).float()
+        elif self.args.load_spec_recon:
+            X = torch.from_numpy(sample["spec_recon"]).float()
+        else:
+            X = sample["signal"]
+            X = torch.from_numpy(X).float()
+            X = self.spec_transform(X.T)
         return X, Y
 
 class SpectrogramCNN(nn.Module):
