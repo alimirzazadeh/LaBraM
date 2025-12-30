@@ -171,7 +171,10 @@ def find_spec(fileName, val=False):
     else:
         peng_file_name = f"{patient_id}_ses-{patient_id}_{session_id}_preprocessed-eeg.npz" # aaaaabji_ses-aaaaabji_00000001_preprocessed-eeg.npz
     peng_file_path = os.path.join(recon_dir, peng_file_name)
-    peng_data = np.load(peng_file_path)
+    try:
+        peng_data = np.load(peng_file_path)
+    except:
+        bp() 
     spec_true = peng_data['original']
     spec_recon = peng_data['reconstruction']
     return spec_true, spec_recon
