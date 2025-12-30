@@ -1201,6 +1201,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
             X = sample["signal"]
             X = torch.from_numpy(X).float()
             X = self.spec_transform(X.T)
+        bp() 
         Y = int(sample["y"])
         return X, Y
 
@@ -1862,7 +1863,8 @@ if __name__ == "__main__":
     #     {'window_length': 1, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
     # ]
     for test_case in test_cases:
-        trainset = TUEVBaselineDataset(mode='train', **test_case)
+        trainset = TUABBaselineDataset(mode='train', **test_case)
+        print(trainset[0])
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
         aa = next(iter(trainloader))
         print(test_case)
