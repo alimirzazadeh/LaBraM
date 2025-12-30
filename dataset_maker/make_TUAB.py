@@ -46,7 +46,7 @@ standard_channels = [
 def find_spec(fileName):
     edf_file = fileName.split('/')[-1]
     patient_id = edf_file.split('_')[0]
-    session_id = edf_file[len(patient_id) + 1].strip('.edf')
+    session_id = edf_file[len(patient_id) + 1:].strip('.edf')
     bp() 
     recon_dir = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUAB/reconstructions_2025-12-22T22-12-45_harvard_vqgan_2_embed32n8192corr01vqtorchema_patchgan_multitaper_128x128_8x16"
     # aaaaamxe_ses-s001_t000_preprocessed-eeg.npz
