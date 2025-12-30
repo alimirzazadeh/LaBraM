@@ -15,6 +15,9 @@ from tqdm import tqdm
 https://github.com/Abhishaike/EEG_Event_Classification
 """
 
+WITH_SPEC = True
+STAGE_ONE = True ## produces the processed files for the model training
+STAGE_TWO = False ## moves the files once produced into the structure that is used for model training
 drop_channels = ['PHOTIC-REF', 'IBI', 'BURSTS', 'SUPPR', 'EEG ROC-REF', 'EEG LOC-REF', 'EEG EKG1-REF', 'EMG-REF', 'EEG C3P-REF', 'EEG C4P-REF', 'EEG SP1-REF', 'EEG SP2-REF', \
                  'EEG LUC-REF', 'EEG RLC-REF', 'EEG RESP1-REF', 'EEG RESP2-REF', 'EEG EKG-REF', 'RESP ABDOMEN-REF', 'ECG EKG-REF', 'PULSE RATE', 'EEG PG2-REF', 'EEG PG1-REF']
 drop_channels.extend([f'EEG {i}-REF' for i in range(20, 129)])
@@ -274,15 +277,20 @@ TUEV dataset is downloaded from https://isip.piconepress.com/projects/tuh_eeg/ht
 """
 
 root = "/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf"
-train_out_dir = os.path.join(root, "processed_train_with_spec")
-eval_out_dir = os.path.join(root, "processed_eval_with_spec")
+if WITH_SPEC:
+    train_out_dir = os.path.join(root, "processed_train_with_spec")
+    eval_out_dir = os.path.join(root, "processed_eval_with_spec")
+else:
+    train_out_dir = os.path.join(root, "processed_train")
+    eval_out_dir = os.path.join(root, "processed_eval")
 
 if not os.path.exists(train_out_dir):
     os.makedirs(train_out_dir)
 if not os.path.exists(eval_out_dir):
     os.makedirs(eval_out_dir)
 
-if False:
+
+if STAGE_ONE:
     BaseDirTrain = os.path.join(root, "train")
     fs = 200
     TrainFeatures = np.empty(
@@ -290,48 +298,66 @@ if False:
     )  # 0 for lack of intialization, 22 for channels, fs for num of points
     TrainLabels = np.empty([0, 1])
     TrainOffendingChannel = np.empty([0, 1])
-    load_up_objects_with_spec(
-        BaseDirTrain, TrainFeatures, TrainLabels, TrainOffendingChannel, train_out_dir, val=False
-    )
+    if WITH_SPEC:
+        load_up_objects_with_spec(
+            BaseDirTrain, TrainFeatures, TrainLabels, TrainOffendingChannel, train_out_dir, val=False
+        )
+    else:
+        load_up_objects(
+            BaseDirTrain, TrainFeatures, TrainLabels, TrainOffendingChannel, train_out_dir
+        )
 
-BaseDirEval = os.path.join(root, "eval")
-fs = 200
-EvalFeatures = np.empty(
-    (0, 23, fs)
-)  # 0 for lack of intialization, 22 for channels, fs for num of points
-EvalLabels = np.empty([0, 1])
-EvalOffendingChannel = np.empty([0, 1])
-load_up_objects_with_spec(
-    BaseDirEval, EvalFeatures, EvalLabels, EvalOffendingChannel, eval_out_dir, val=True
-)
+    BaseDirEval = os.path.join(root, "eval")
+    fs = 200
+    EvalFeatures = np.empty(
+        (0, 23, fs)
+    )  # 0 for lack of intialization, 22 for channels, fs for num of points
+    EvalLabels = np.empty([0, 1])
+    EvalOffendingChannel = np.empty([0, 1])
+    if WITH_SPEC:
+        load_up_objects_with_spec(
+            BaseDirEval, EvalFeatures, EvalLabels, EvalOffendingChannel, eval_out_dir, val=True
+        )
+    else:
+        load_up_objects(
+            BaseDirEval, EvalFeatures, EvalLabels, EvalOffendingChannel, eval_out_dir
+        )
+
+if STAGE_TWO:
+    #transfer to train, eval, and test
+    # root = "/share/TUEV/"
+    root = "/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf"
+    seed = 4523
+    np.random.seed(seed)
+
+    train_files = os.listdir(os.path.join(root, "processed_train"))
+    train_sub = list(set([f.split("_")[0] for f in train_files]))
+    print("train sub", len(train_sub))
+    test_files = os.listdir(os.path.join(root, "processed_eval"))
+
+    val_sub = np.random.choice(train_sub, size=int(
+        len(train_sub) * 0.2), replace=False)
+    train_sub = list(set(train_sub) - set(val_sub))
+    val_files = [f for f in train_files if f.split("_")[0] in val_sub]
+    train_files = [f for f in train_files if f.split("_")[0] in train_sub]
+
+    if WITH_SPEC:
+        train_folder_name = 'processed_train_with_spec'
+        eval_folder_name = 'processed_eval_with_spec'
+        test_folder_name = 'processed_test_with_spec'
+    else:
+        train_folder_name = 'processed_train'
+        eval_folder_name = 'processed_eval'
+        test_folder_name = 'processed_test'
+    for file in train_files:
+        os.makedirs(os.path.join(root, 'processed', train_folder_name), exist_ok=True)
+        os.system(f"mv {os.path.join(root, train_folder_name, file)} {os.path.join(root, 'processed', train_folder_name, file)}")
+    for file in val_files:
+        os.makedirs(os.path.join(root, 'processed', eval_folder_name), exist_ok=True)
+        os.system(f"mv {os.path.join(root, train_folder_name, file)} {os.path.join(root, 'processed', eval_folder_name, file)}")
+    for file in test_files:
+        os.makedirs(os.path.join(root, 'processed', test_folder_name), exist_ok=True)
+        os.system(f"mv {os.path.join(root, eval_folder_name, file)} {os.path.join(root, 'processed', test_folder_name, file)}")
 
 
-#transfer to train, eval, and test
-# root = "/share/TUEV/"
-# root = "/data/netmit/sleep_lab/EEG_FM/TUEV/data/v2.0.1/edf"
-# seed = 4523
-# np.random.seed(seed)
 
-# train_files = os.listdir(os.path.join(root, "processed_train"))
-# train_sub = list(set([f.split("_")[0] for f in train_files]))
-# print("train sub", len(train_sub))
-# test_files = os.listdir(os.path.join(root, "processed_eval"))
-
-# val_sub = np.random.choice(train_sub, size=int(
-#     len(train_sub) * 0.2), replace=False)
-# train_sub = list(set(train_sub) - set(val_sub))
-# val_files = [f for f in train_files if f.split("_")[0] in val_sub]
-# train_files = [f for f in train_files if f.split("_")[0] in train_sub]
-
-# for file in train_files:
-#     os.makedirs(os.path.join(root, 'processed', 'processed_train'), exist_ok=True)
-#     os.system(f"cp {os.path.join(root, 'processed_train', file)} {os.path.join(root, 'processed', 'processed_train', file)}")
-# for file in val_files:
-#     os.makedirs(os.path.join(root, 'processed', 'processed_eval'), exist_ok=True)
-#     os.system(f"cp {os.path.join(root, 'processed_train', file)} {os.path.join(root, 'processed', 'processed_eval', file)}")
-# for file in test_files:
-#     os.makedirs(os.path.join(root, 'processed', 'processed_test'), exist_ok=True)
-#     os.system(f"cp {os.path.join(root, 'processed_eval', file)} {os.path.join(root, 'processed', 'processed_test', file)}")
-
-
-## the following files need to be removed:
