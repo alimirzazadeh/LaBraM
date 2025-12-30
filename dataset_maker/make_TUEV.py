@@ -361,3 +361,6 @@ if STAGE_TWO:
 
 
 
+    os.rmdir(os.path.join(root, train_folder_name))
+    os.rmdir(os.path.join(root, eval_folder_name))
+    os.rmdir(os.path.join(root, test_folder_name))
