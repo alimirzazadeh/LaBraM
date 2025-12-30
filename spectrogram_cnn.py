@@ -1862,8 +1862,13 @@ if __name__ == "__main__":
     #     {'window_length': 3, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0},
     #     {'window_length': 1, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
     # ]
+    class Object:
+        pass
     for test_case in test_cases:
-        trainset = TUABBaselineDataset(mode='train', **test_case)
+        args = Object()
+        args.load_spec_true = True
+        args.load_spec_recon = False
+        trainset = TUABBaselineDataset(args, mode='train', **test_case)
         print(trainset[0])
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
         aa = next(iter(trainloader))
