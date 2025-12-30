@@ -21,6 +21,7 @@ drop_channels.extend([f'EEG {i}-REF' for i in range(20, 129)])
 chOrder_standard = ['EEG FP1-REF', 'EEG FP2-REF', 'EEG F3-REF', 'EEG F4-REF', 'EEG C3-REF', 'EEG C4-REF', 'EEG P3-REF', 'EEG P4-REF', 'EEG O1-REF', 'EEG O2-REF', 'EEG F7-REF', \
                     'EEG F8-REF', 'EEG T3-REF', 'EEG T4-REF', 'EEG T5-REF', 'EEG T6-REF', 'EEG A1-REF', 'EEG A2-REF', 'EEG FZ-REF', 'EEG CZ-REF', 'EEG PZ-REF', 'EEG T1-REF', 'EEG T2-REF']
 
+BAD_FILES = ['028_ses-bckg_028_a__preprocessed-eeg', '093_ses-bckg_093_a_2_preprocessed-eeg', '040_ses-bckg_040_a__preprocessed-eeg', '031_ses-bckg_031_a__preprocessed-eeg', '006_ses-pled_006_a__preprocessed-eeg']
 
 def BuildEvents(signals, times, EventData, spec_true=None, spec_recon=None):
     [numEvents, z] = EventData.shape  # numEvents is equal to # of rows of the .rec file
@@ -170,6 +171,8 @@ def find_spec(fileName, val=False):
         peng_file_name = f"{patient_id}_ses-{session_id}_preprocessed-eeg.npz"
     else:
         peng_file_name = f"{patient_id}_ses-{patient_id}_{session_id}_preprocessed-eeg.npz" # aaaaabji_ses-aaaaabji_00000001_preprocessed-eeg.npz
+    if peng_file_name.replace('.npz', '') in BAD_FILES:
+        return None, None
     peng_file_path = os.path.join(recon_dir, peng_file_name)
     peng_data = np.load(peng_file_path)
     spec_true = peng_data['original']
@@ -221,6 +224,9 @@ def load_up_objects_with_spec(BaseDir, Features, OffendingChannels, Labels, OutD
                     )  # event is the .rec file in the form of an array
                     #signals = convert_signals(signals, Rawdata)
                     spec_true, spec_recon = find_spec(dirName + "/" + fname, val=val)
+                    if spec_true is None or spec_recon is None:
+                        print('fname', dirName + "/" + fname, 'is bad')
+                        continue
                 except (ValueError, KeyError):
                     print("something funky happened in " + dirName + "/" + fname)
                     continue
@@ -326,3 +332,6 @@ load_up_objects_with_spec(
 # for file in test_files:
 #     os.makedirs(os.path.join(root, 'processed', 'processed_test'), exist_ok=True)
 #     os.system(f"cp {os.path.join(root, 'processed_eval', file)} {os.path.join(root, 'processed', 'processed_test', file)}")
+
+
+## the following files need to be removed:
