@@ -207,6 +207,7 @@ def load_up_objects_with_spec(BaseDir, Features, OffendingChannels, Labels, OutD
         for fname in fileList:
             if fname[-4:] == ".edf":
                 print("\t%s" % fname)
+                bp() 
                 try:
                     [signals, times, event, Rawdata] = readEDF(
                         dirName + "/" + fname
@@ -269,16 +270,17 @@ if not os.path.exists(train_out_dir):
 if not os.path.exists(eval_out_dir):
     os.makedirs(eval_out_dir)
 
-BaseDirTrain = os.path.join(root, "train")
-fs = 200
-TrainFeatures = np.empty(
-    (0, 23, fs)
-)  # 0 for lack of intialization, 22 for channels, fs for num of points
-TrainLabels = np.empty([0, 1])
-TrainOffendingChannel = np.empty([0, 1])
-load_up_objects_with_spec(
-    BaseDirTrain, TrainFeatures, TrainLabels, TrainOffendingChannel, train_out_dir
-)
+if False:
+    BaseDirTrain = os.path.join(root, "train")
+    fs = 200
+    TrainFeatures = np.empty(
+        (0, 23, fs)
+    )  # 0 for lack of intialization, 22 for channels, fs for num of points
+    TrainLabels = np.empty([0, 1])
+    TrainOffendingChannel = np.empty([0, 1])
+    load_up_objects_with_spec(
+        BaseDirTrain, TrainFeatures, TrainLabels, TrainOffendingChannel, train_out_dir
+    )
 
 BaseDirEval = os.path.join(root, "eval")
 fs = 200
