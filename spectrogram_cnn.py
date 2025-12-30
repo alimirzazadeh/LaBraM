@@ -505,14 +505,9 @@ class CustomResNet18(nn.Module):
       4) Output features: [B, 512, 5, 1]
     """
 
-    def __init__(self, num_classes=None, dataset='TUAB', num_channels=23):
+    def __init__(self, num_classes=None, dataset='TUAB', num_channels=23, data_length=10):
         super().__init__()
-        if dataset == 'TUAB':
-            self.data_length = 10
-        elif dataset == 'TUEV':
-            self.data_length = 5
-        else:
-            raise ValueError(f"Invalid dataset: {dataset}")
+        self.data_length = data_length
         # -------- 1D stem along height --------
         self.conv1d = nn.Conv1d(
             in_channels=num_channels,
@@ -1250,10 +1245,9 @@ class TUEVBaselineDataset(torch.utils.data.Dataset):
         return X, Y
 
 class SpectrogramCNN(nn.Module):
-    def __init__(self, model='conv1d', num_classes=6, dataset='TUAB', num_channels=23) -> None:
+    def __init__(self, model='conv1d', num_classes=6, dataset='TUAB', num_channels=23, data_length=10) -> None:
         super().__init__()
         assert model in ['conv1d','conv2d','resnet']
-        
 
         self.model_type = model 
         if self.model_type == 'conv1d':
@@ -1261,7 +1255,7 @@ class SpectrogramCNN(nn.Module):
         elif self.model_type == 'conv2d':
             self.model = SpectrogramCNN2D(num_classes=num_classes, num_channels=num_channels)
         elif self.model_type == 'resnet':
-            self.model = CustomResNet18(num_classes=num_classes, dataset=dataset, num_channels=num_channels)
+            self.model = CustomResNet18(num_classes=num_classes, dataset=dataset, num_channels=num_channels, data_length=data_length)
         
     def preprocess_input(self,x):
         return self.spec_transform(x)

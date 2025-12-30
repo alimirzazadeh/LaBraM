@@ -206,7 +206,17 @@ def main(args):
     val_loader = DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     num_channels = 19 if args.load_spec_true or args.load_spec_recon else 23
-    model = SpectrogramCNN(model=model_type, num_classes=num_classes, dataset=args.dataset, num_channels=num_channels)
+    if args.dataset == 'TUAB':
+        if args.load_spec_true or args.load_spec_recon:
+            data_length = 8 
+        else:
+            data_length = 10
+    elif args.dataset == 'TUEV':
+        data_length = 5
+    else:
+        raise ValueError(f"Invalid dataset: {args.dataset}")
+
+    model = SpectrogramCNN(model=model_type, num_classes=num_classes, dataset=args.dataset, num_channels=num_channels, data_length=data_length)
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
