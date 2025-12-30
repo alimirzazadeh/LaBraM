@@ -1818,11 +1818,11 @@ if __name__ == "__main__":
     # visualize_comparison('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5')
 
     # multitaper_results = validate_multitaper_against_mne()
-    get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 1000, 200, 0, 32, 1.0)
-    get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 1000, 200, 0, 32, 1.0, data_length=200 * 47)
-    get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 1000, 200, 0, 32, 1.0, data_length=200 * 48)
-    get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 800, 200, 0, 32, 1.0)
-    bp() 
+    # get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 1000, 200, 0, 32, 1.0)
+    # get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 1000, 200, 0, 32, 1.0, data_length=200 * 47)
+    # get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 1000, 200, 0, 32, 1.0, data_length=200 * 48)
+    # get_multitaper_shapes('sample_eeg/sub-S0001122302611_ses-2_preprocessed-eeg.h5', 200, 0.1, 800, 200, 0, 32, 1.0)
+    # bp() 
     # # print((multitaper_results['psd_mne'] - multitaper_results['psd_ours']) / multitaper_results['psd_mne'])
     # # import scipy.stats
     # # print(scipy.stats.pearsonr(multitaper_results['psd_mne'], multitaper_results['psd_ours']))
