@@ -15,7 +15,7 @@ from tqdm import tqdm
 https://github.com/Abhishaike/EEG_Event_Classification
 """
 
-WITH_SPEC = True
+WITH_SPEC = False
 STAGE_ONE = False ## produces the processed files for the model training
 STAGE_TWO = True ## moves the files once produced into the structure that is used for model training
 drop_channels = ['PHOTIC-REF', 'IBI', 'BURSTS', 'SUPPR', 'EEG ROC-REF', 'EEG LOC-REF', 'EEG EKG1-REF', 'EMG-REF', 'EEG C3P-REF', 'EEG C4P-REF', 'EEG SP1-REF', 'EEG SP2-REF', \
@@ -349,13 +349,13 @@ if STAGE_TWO:
         train_folder_name = 'processed_train'
         eval_folder_name = 'processed_eval'
         test_folder_name = 'processed_test'
-    for file in train_files:
+    for file in tqdm(train_files):
         os.makedirs(os.path.join(root, 'processed', train_folder_name), exist_ok=True)
         os.system(f"mv {os.path.join(root, train_folder_name, file)} {os.path.join(root, 'processed', train_folder_name, file)}")
-    for file in val_files:
+    for file in tqdm(val_files):
         os.makedirs(os.path.join(root, 'processed', eval_folder_name), exist_ok=True)
         os.system(f"mv {os.path.join(root, train_folder_name, file)} {os.path.join(root, 'processed', eval_folder_name, file)}")
-    for file in test_files:
+    for file in tqdm(test_files):
         os.makedirs(os.path.join(root, 'processed', test_folder_name), exist_ok=True)
         os.system(f"mv {os.path.join(root, eval_folder_name, file)} {os.path.join(root, 'processed', test_folder_name, file)}")
 
