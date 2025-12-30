@@ -788,17 +788,17 @@ def prepare_TUAB_dataset(root):
     seed = 12345
     np.random.seed(seed)
 
-    train_files = os.listdir(os.path.join(root, "train"))
+    train_files = os.listdir(os.path.join(root, "train" + "_with_spec"))
     np.random.shuffle(train_files)
-    val_files = os.listdir(os.path.join(root, "val"))
-    test_files = os.listdir(os.path.join(root, "test"))
+    val_files = os.listdir(os.path.join(root, "val" + "_with_spec"))
+    test_files = os.listdir(os.path.join(root, "test" + "_with_spec"))
 
     print(len(train_files), len(val_files), len(test_files))
 
     # prepare training and test data loader
-    train_dataset = TUABLoader(os.path.join(root, "train"), train_files)
-    test_dataset = TUABLoader(os.path.join(root, "test"), test_files)
-    val_dataset = TUABLoader(os.path.join(root, "val"), val_files)
+    train_dataset = TUABLoader(os.path.join(root, "train" + "_with_spec"), train_files)
+    test_dataset = TUABLoader(os.path.join(root, "test" + "_with_spec"), test_files)
+    val_dataset = TUABLoader(os.path.join(root, "val" + "_with_spec"), val_files)
     print(len(train_files), len(val_files), len(test_files))
     return train_dataset, test_dataset, val_dataset
 
