@@ -1203,9 +1203,10 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         elif self.args.load_spec_recon:
             X = torch.from_numpy(sample["spec_recon"]).float()
         else:
-            X = sample["signal"]
+            X = sample["X"]
             X = torch.from_numpy(X).float()
             X = self.spec_transform(X.T)
+            # X2 = self.spec_transform(torch.from_numpy(sample["X"]).float().T)
         bp() 
         Y = int(sample["y"])
         return X, Y
@@ -1244,7 +1245,7 @@ class TUEVBaselineDataset(torch.utils.data.Dataset):
         elif self.args.load_spec_recon:
             X = torch.from_numpy(sample["spec_recon"]).float()
         else:
-            X = sample["signal"]
+            X = sample["X"]
             X = torch.from_numpy(X).float()
             X = self.spec_transform(X.T)
         return X, Y
@@ -1856,8 +1857,8 @@ if __name__ == "__main__":
     args.load_spec_true = True
     args.load_spec_recon = False
     test_cases = [
-        {'args': args, 'mode': 'train','window_length': 5, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
-        {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
+        {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0},
+        # {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
     ]
     #     {'window_length': 5, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
     #     {'window_length': 5, 'resolution': 0.2, 'stride_length': 2, 'multitaper': False, 'bandwidth': -1},
