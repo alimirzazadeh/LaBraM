@@ -13,7 +13,7 @@ import mne
 
 WITH_SPEC = True
 num_workers = 24
-PARALLEL = False
+PARALLEL = True
 drop_channels = ['PHOTIC-REF', 'IBI', 'BURSTS', 'SUPPR', 'EEG ROC-REF', 'EEG LOC-REF', 'EEG EKG1-REF', 'EMG-REF', 'EEG C3P-REF', 'EEG C4P-REF', 'EEG SP1-REF', 'EEG SP2-REF', \
                  'EEG LUC-REF', 'EEG RLC-REF', 'EEG RESP1-REF', 'EEG RESP2-REF', 'EEG EKG-REF', 'RESP ABDOMEN-REF', 'ECG EKG-REF', 'PULSE RATE', 'EEG PG2-REF', 'EEG PG1-REF']
 drop_channels.extend([f'EEG {i}-REF' for i in range(20, 129)])
@@ -95,7 +95,6 @@ def split_and_dump(params):
                 dump_path = os.path.join(
                     dump_folder, file.split(".")[0] + "_" + str(i) + ".pkl"
                 )
-                bp() 
                 if WITH_SPEC:
                     pickle.dump(
                         {"X": channeled_data[:, i * 2000 : (i + 1) * 2000], "y": label, "spec_true": spec_true[:, :, i * 10 : (i + 1) * 10], "spec_recon": spec_recon[:, :, i * 10 : (i + 1) * 10]},
