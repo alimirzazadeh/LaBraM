@@ -718,12 +718,12 @@ def get_input_chans(ch_names):
 
 
 class TUABLoader(torch.utils.data.Dataset):
-    def __init__(self, root, files, sampling_rate=200):
+    def __init__(self, root, files, sampling_rate=200, return_pid=False):
         self.root = root
         self.files = files
         self.default_rate = 200
         self.sampling_rate = sampling_rate
-
+        self.return_pid = return_pid
     def __len__(self):
         return len(self.files)
 
@@ -733,7 +733,11 @@ class TUABLoader(torch.utils.data.Dataset):
         if self.sampling_rate != self.default_rate:
             X = resample(X, 10 * self.sampling_rate, axis=-1)
         Y = sample["y"]
-        X = torch.FloatTensor(X)
+        X = torch.FloatTensor(X) 
+        if self.return_pid:
+            pid = self.files[index].split("_")[0]
+            session = self.files[index].split("_")[1]
+            return X, {"y": Y, "pid": pid, "session": session}
         return X, Y
     
 
@@ -783,7 +787,7 @@ def prepare_TUEV_dataset(root):
     return train_dataset, test_dataset, val_dataset
 
 
-def prepare_TUAB_dataset(root):
+def prepare_TUAB_dataset(root, return_pid=False):
     # set random seed
     seed = 12345
     np.random.seed(seed)
@@ -796,9 +800,9 @@ def prepare_TUAB_dataset(root):
     print(len(train_files), len(val_files), len(test_files))
 
     # prepare training and test data loader
-    train_dataset = TUABLoader(os.path.join(root, "train" + "_with_spec"), train_files)
-    test_dataset = TUABLoader(os.path.join(root, "test" + "_with_spec"), test_files)
-    val_dataset = TUABLoader(os.path.join(root, "val" + "_with_spec"), val_files)
+    train_dataset = TUABLoader(os.path.join(root, "train" + "_with_spec"), train_files, return_pid=return_pid)
+    test_dataset = TUABLoader(os.path.join(root, "test" + "_with_spec"), test_files, return_pid=return_pid)
+    val_dataset = TUABLoader(os.path.join(root, "val" + "_with_spec"), val_files, return_pid=return_pid)
     print(len(train_files), len(val_files), len(test_files))
     return train_dataset, test_dataset, val_dataset
 
