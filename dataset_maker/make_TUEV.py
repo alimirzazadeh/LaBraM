@@ -155,13 +155,16 @@ def readEDF(fileName):
     Rawdata.close()
     return [signals, times, eventData, Rawdata]
 
-def find_spec(fileName):
+def find_spec(fileName, val=False):
     edf_file = fileName.split('/')[-1]
     patient_id = edf_file.split('_')[0]
     session_id = edf_file.split('_')[1].split('.')[0]
     # recon_dir = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUEV/reconstructions_2025-12-15T01-15-13_harvard_vqgan_2_embed32n8192corr01vqtorchema_patchgan_multitaper_128x128_8x16"
     recon_dir = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUEV/reconstructions_2025-12-22T22-12-45_harvard_vqgan_2_embed32n8192corr01vqtorchema_patchgan_multitaper_128x128_8x16"
-    peng_file_name = f"{patient_id}_ses-{patient_id}_{session_id}_preprocessed-eeg.npz" # aaaaabji_ses-aaaaabji_00000001_preprocessed-eeg.npz
+    if val:
+        bp() 
+    else:
+        peng_file_name = f"{patient_id}_ses-{patient_id}_{session_id}_preprocessed-eeg.npz" # aaaaabji_ses-aaaaabji_00000001_preprocessed-eeg.npz
     peng_file_path = os.path.join(recon_dir, peng_file_name)
     peng_data = np.load(peng_file_path)
     spec_true = peng_data['original']
@@ -200,31 +203,29 @@ def load_up_objects(BaseDir, Features, OffendingChannels, Labels, OutDir):
 
     return Features, Labels, OffendingChannels
 
-def load_up_objects_with_spec(BaseDir, Features, OffendingChannels, Labels, OutDir):
+def load_up_objects_with_spec(BaseDir, Features, OffendingChannels, Labels, OutDir, val=False):
     import h5py
     for dirName, subdirList, fileList in tqdm(os.walk(BaseDir)):
         print("Found directory: %s" % dirName)
         for fname in fileList:
             if fname[-4:] == ".edf":
                 print("\t%s" % fname)
-                bp() 
                 try:
                     [signals, times, event, Rawdata] = readEDF(
                         dirName + "/" + fname
                     )  # event is the .rec file in the form of an array
                     #signals = convert_signals(signals, Rawdata)
-                    spec_true, spec_recon = find_spec(dirName + "/" + fname)
+                    spec_true, spec_recon = find_spec(dirName + "/" + fname, val=val)
                 except (ValueError, KeyError):
                     print("something funky happened in " + dirName + "/" + fname)
                     continue
 
-                
-                pid = fname.split('_')[0]
-                session = fname.split('_')[1].split('.')[0]
-                other_root_dir = f'/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUEV/{pid}_ses-{pid}_{session}_preprocessed-eeg.h5'
-                h5file = h5py.File(other_root_dir, 'r')
-                other_signals = h5file['recording']['data'][:]  # (time, channels)
-                print('other signal length',other_signals.shape[0] / 200)
+                # pid = fname.split('_')[0]
+                # session = fname.split('_')[1].split('.')[0]
+                # other_root_dir = f'/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUEV/{pid}_ses-{pid}_{session}_preprocessed-eeg.h5'
+                # h5file = h5py.File(other_root_dir, 'r')
+                # other_signals = h5file['recording']['data'][:]  # (time, channels)
+                # print('other signal length',other_signals.shape[0] / 200)
                 
                 print('original signal length',signals.shape[1] / 200, spec_true.shape, spec_recon.shape)
                 if spec_true.shape[-1] != signals.shape[1] // 200:
@@ -279,7 +280,7 @@ if False:
     TrainLabels = np.empty([0, 1])
     TrainOffendingChannel = np.empty([0, 1])
     load_up_objects_with_spec(
-        BaseDirTrain, TrainFeatures, TrainLabels, TrainOffendingChannel, train_out_dir
+        BaseDirTrain, TrainFeatures, TrainLabels, TrainOffendingChannel, train_out_dir, val=False
     )
 
 BaseDirEval = os.path.join(root, "eval")
@@ -290,7 +291,7 @@ EvalFeatures = np.empty(
 EvalLabels = np.empty([0, 1])
 EvalOffendingChannel = np.empty([0, 1])
 load_up_objects_with_spec(
-    BaseDirEval, EvalFeatures, EvalLabels, EvalOffendingChannel, eval_out_dir
+    BaseDirEval, EvalFeatures, EvalLabels, EvalOffendingChannel, eval_out_dir, val=True
 )
 
 
