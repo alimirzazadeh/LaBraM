@@ -255,7 +255,7 @@ def main(args, ds_init):
         dataset_val = None
         dataset_test = None
 
-    if False:  # args.distributed:
+    if True:  # args.distributed:
         num_tasks = utils.get_world_size()
         global_rank = utils.get_rank()
         sampler_train = torch.utils.data.DistributedSampler(
