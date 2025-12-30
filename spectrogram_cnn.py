@@ -1172,7 +1172,7 @@ class SpecNorm:
         return (data - self.mean_vector) / self.std_vector
 
 class TUABBaselineDataset(torch.utils.data.Dataset):
-    def __init__(self, args, mode='train', window_length=5, resolution=0.2):
+    def __init__(self, args, mode='train', window_length=5, resolution=0.2, stride_length=1, multitaper=False, bandwidth=2.0):
         assert mode in ['train','val','test']
         self.mode = mode
         self.args = args
@@ -1181,13 +1181,18 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         self.files = [f for f in self.files if f.endswith('.pkl')]
         self.resolution=resolution
         self.window_length=window_length
-        self.stride_length=1
+        self.stride_length=stride_length
         self.min_freq = 0
         self.max_freq = 32
         self.fs=200
-        self.spec_transform = SpectrogramTransform(
+        if multitaper:
+            self.spec_transform = MultitaperSpectrogramTransform(
                 fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
-                pad=self.fs * self.window_length // 2, min_freq=self.min_freq, max_freq=self.max_freq)
+                min_freq=self.min_freq, max_freq=self.max_freq, bandwidth=bandwidth)
+        else:
+            self.spec_transform = SpectrogramTransform(
+                    fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
+                    pad=self.fs * self.window_length // 2, min_freq=self.min_freq, max_freq=self.max_freq)
     def __len__(self):
         return len(self.files)
     def __getitem__(self, index):
