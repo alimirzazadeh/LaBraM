@@ -12,7 +12,7 @@ import numpy as np
 import mne
 
 WITH_SPEC = True
-
+num_workers = 1 #24
 drop_channels = ['PHOTIC-REF', 'IBI', 'BURSTS', 'SUPPR', 'EEG ROC-REF', 'EEG LOC-REF', 'EEG EKG1-REF', 'EMG-REF', 'EEG C3P-REF', 'EEG C4P-REF', 'EEG SP1-REF', 'EEG SP2-REF', \
                  'EEG LUC-REF', 'EEG RLC-REF', 'EEG RESP1-REF', 'EEG RESP2-REF', 'EEG EKG-REF', 'RESP ABDOMEN-REF', 'ECG EKG-REF', 'PULSE RATE', 'EEG PG2-REF', 'EEG PG1-REF']
 drop_channels.extend([f'EEG {i}-REF' for i in range(20, 129)])
@@ -186,6 +186,6 @@ if __name__ == "__main__":
         parameters.append([test_normal, test_sub, test_dump_folder, 0])
 
     # split and dump in parallel
-    with Pool(processes=24) as pool:
+    with Pool(processes=num_workers) as pool:
         # Use the pool.map function to apply the square function to each element in the numbers list
         result = pool.map(split_and_dump, parameters)
