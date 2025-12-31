@@ -139,9 +139,11 @@ def logger(writer, metrics, phase, epoch_index):
     writer.flush()
     
 
-def train_epoch(model, loader, optimizer, loss_fn, device, metrics):
+def train_epoch(model, loader, optimizer, loss_fn, device, metrics, scheduler, epoch):
     model.train()
     running_loss = 0.0
+    
+    step = epoch * len(loader)
     for X, Y in tqdm(loader):
         X = X.to(device)
         Y = Y.to(device)
@@ -153,10 +155,24 @@ def train_epoch(model, loader, optimizer, loss_fn, device, metrics):
         optimizer.step()
         metrics.update(outputs, Y)
         running_loss += loss.item() * X.size(0)
+        
+        step += 1
+
+        if epoch < args.epochs * args.lr_warmup_prop:
+            lr = args.lr * (step / (args.epochs * len(loader) * args.lr_warmup_prop))
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr
+        else:
+            if scheduler is None:
+                scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, int(args.epochs * len(loader) * (1-args.lr_warmup_prop)), eta_min=0)
+            else:
+                scheduler.step() 
+        print('Step: ', step, 'Learning rate: ', optimizer.param_groups[0]['lr'])
+    
     epoch_loss = running_loss / len(loader.dataset)
     results = metrics.compute_and_reset(loss=epoch_loss)
     
-    return epoch_loss, results
+    return epoch_loss, results, scheduler
 
 def validate_epoch(model, loader, loss_fn, device, metrics):
     model.eval()
@@ -187,7 +203,7 @@ def main(args):
     num_classes = args.num_classes
     window_length = args.window_length
     resolution = args.resolution
-    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}_window_{window_length}_resolution_{resolution}_resolutionfactor_{args.resolution_factor}_stride_{args.stride_length}_bw_{args.bandwidth}_{'multitaper' if args.multitaper else 'stft'}_{'load_spec_true' if args.load_spec_true else 'load_spec_recon' if args.load_spec_recon else ''}'
+    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}_window_{window_length}_resolution_{resolution}_resolutionfactor_{args.resolution_factor}_stride_{args.stride_length}_bw_{args.bandwidth}_{'multitaper' if args.multitaper else 'stft'}_{'load_spec_true' if args.load_spec_true else 'load_spec_recon' if args.load_spec_recon else ''}_{str(args.lr_warmup_prop) + '_warmup'}'
     print(exp_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(log_dir=f'/data/scratch/alimirz/2025/EEG_FM/{args.dataset}_V2/{exp_name}')
@@ -220,7 +236,8 @@ def main(args):
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    scheduler = None
     loss_fn = nn.CrossEntropyLoss()
     metrics = MulticlassMetrics(num_classes=num_classes, device=device)
 
@@ -229,12 +246,12 @@ def main(args):
         logger(writer, val_results, 'val', epoch)
         test_loss, test_results = validate_epoch(model, test_loader, loss_fn, device, metrics)
         logger(writer, test_results, 'test', epoch)
-        train_loss, train_results = train_epoch(model, train_loader, optimizer, loss_fn, device, metrics)
+        train_loss, train_results, scheduler = train_epoch(model, train_loader, optimizer, loss_fn, device, metrics, scheduler, epoch)
         # Get current learning rate and add to metrics
         current_lr = optimizer.param_groups[0]['lr']
         train_results['lr'] = current_lr
         logger(writer, train_results, 'train', epoch)
-        scheduler.step()
+        # scheduler.step()
         print(f"Epoch {epoch+1}/{epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
 if __name__ == "__main__":
@@ -254,6 +271,7 @@ if __name__ == "__main__":
     parser.add_argument('--multitaper', type=bool, default=False)
     parser.add_argument('--load_spec_true', type=bool, default=False)
     parser.add_argument('--load_spec_recon', type=bool, default=False)
+    parser.add_argument('--lr_warmup_prop', type=float, default=0.2)
     args = parser.parse_args()
     args.resolution = 0.2
     main(args)

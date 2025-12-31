@@ -78,7 +78,12 @@ def load_model_checkpoint(checkpoint_path, device):
 
 def evaluate_model(model, data_loader, device, ch_names):
     """Run inference and collect predictions, labels, and patient IDs"""
-    input_chans = utils.get_input_chans(ch_names)
+    # Only use input_chans if the model has positional embeddings
+    # Otherwise, pass None to avoid indexing None
+    if hasattr(model, 'pos_embed') and model.pos_embed is not None:
+        input_chans = utils.get_input_chans(ch_names)
+    else:
+        input_chans = None
     
     all_predictions = []
     all_labels = []
@@ -213,18 +218,10 @@ def main():
     model = load_model_checkpoint(checkpoint_path, device)
     print("Model loaded successfully!")
     
-    # Load test dataset
+    # Load test dataset with return_pid=True to get patient IDs
     print(f"\nLoading TUAB test dataset from {dataset_root}...")
-    _, test_dataset, _ = utils.prepare_TUAB_dataset(dataset_root, return_pid=True)
-    
-    # Create dataset with return_pid=True to get patient IDs
-    test_dataset_with_pid = utils.TUABLoader(
-        test_dataset.root,
-        test_dataset.files,
-        sampling_rate=test_dataset.sampling_rate,
-        return_pid=True
-    )
-    bp() 
+    _, test_dataset_with_pid, _ = utils.prepare_TUAB_dataset(dataset_root, return_pid=True)
+
     # Create data loader
     test_loader = torch.utils.data.DataLoader(
         test_dataset_with_pid,
@@ -235,6 +232,7 @@ def main():
     )
     
     print(f"Test dataset size: {len(test_dataset_with_pid)}")
+    print(f"Dataset return_pid: {test_dataset_with_pid.return_pid}")
     
     # Run evaluation
     print("\nRunning evaluation...")
