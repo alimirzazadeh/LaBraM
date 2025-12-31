@@ -11,7 +11,7 @@ from engine_for_finetuning import evaluate
 from run_class_finetuning import get_dataset
 
 
-def load_model_checkpoint(checkpoint_path, device):
+def load_model_checkpoint(checkpoint_path, device, load=True):
     """Load the finetuned model from checkpoint"""
     # Model configuration (matching the finetuning setup)
     model = create_model(
@@ -29,20 +29,20 @@ def load_model_checkpoint(checkpoint_path, device):
         init_values=0.1,
         qkv_bias=True,
     )
-    
-    # Load checkpoint - match exact logic from utils.auto_load_model (line 636)
-    checkpoint = torch.load(checkpoint_path, map_location='cpu')
-    
-    print("Load ckpt from %s" % checkpoint_path)
-    
-    # Checkpoint saved during training has 'model' key directly (see utils.save_model line 588)
-    # During training resume, they use: model_without_ddp.load_state_dict(checkpoint['model'])
-    if 'model' not in checkpoint:
-        raise ValueError(f"Checkpoint does not contain 'model' key. Available keys: {checkpoint.keys()}")
-    
-    # Load directly like training script does (utils.py line 636)
-    model.load_state_dict(checkpoint['model'], strict=False)
-    print("Model state dict loaded successfully")
+    if load:
+        # Load checkpoint - match exact logic from utils.auto_load_model (line 636)
+        checkpoint = torch.load(checkpoint_path, map_location='cpu')
+        
+        print("Load ckpt from %s" % checkpoint_path)
+        
+        # Checkpoint saved during training has 'model' key directly (see utils.save_model line 588)
+        # During training resume, they use: model_without_ddp.load_state_dict(checkpoint['model'])
+        if 'model' not in checkpoint:
+            raise ValueError(f"Checkpoint does not contain 'model' key. Available keys: {checkpoint.keys()}")
+        
+        # Load directly like training script does (utils.py line 636)
+        model.load_state_dict(checkpoint['model'], strict=False)
+        print("Model state dict loaded successfully")
     
     model.to(device)
     model.eval()
@@ -62,7 +62,7 @@ def main():
     
     # Load model
     print(f"\nLoading model from {checkpoint_path}...")
-    model = load_model_checkpoint(checkpoint_path, device)
+    model = load_model_checkpoint(checkpoint_path, device, load=False)
     print("Model loaded successfully!")
     
     # Load dataset using the same function as finetuning script
