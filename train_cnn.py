@@ -144,6 +144,7 @@ def train_epoch(model, loader, optimizer, loss_fn, device, metrics, scheduler, e
     running_loss = 0.0
     
     step = epoch * len(loader)
+    print('Step: ', step, 'Learning rate: ', optimizer.param_groups[0]['lr'])
     for X, Y in tqdm(loader):
         X = X.to(device)
         Y = Y.to(device)
@@ -167,7 +168,7 @@ def train_epoch(model, loader, optimizer, loss_fn, device, metrics, scheduler, e
                 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, int(args.epochs * len(loader) * (1-args.lr_warmup_prop)), eta_min=0)
             else:
                 scheduler.step() 
-        print('Step: ', step, 'Learning rate: ', optimizer.param_groups[0]['lr'])
+        
     
     epoch_loss = running_loss / len(loader.dataset)
     results = metrics.compute_and_reset(loss=epoch_loss)
