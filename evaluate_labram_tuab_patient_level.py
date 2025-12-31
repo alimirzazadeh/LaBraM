@@ -252,7 +252,7 @@ def evaluate_model(data_loader, model, device, ch_names=None):
 
 def main():
     # Configuration
-    checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-49.pth" #checkpoint-49.pth" #checkpoint-best.pth"
+    checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-best.pth" #checkpoint-49.pth" #checkpoint-best.pth"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 256
     
@@ -276,7 +276,7 @@ def main():
     
     # Create data loader
     test_loader = torch.utils.data.DataLoader(
-        dataset_train,
+        dataset_test,
         batch_size=batch_size,
         num_workers=10,
         pin_memory=True,
