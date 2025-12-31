@@ -87,7 +87,7 @@ def main():
     # Configuration
     checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-49.pth" #checkpoint-best.pth"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    batch_size = 64
+    batch_size = 256
     
     print("=" * 60)
     print("LaBraM TUAB Evaluation")
@@ -101,6 +101,7 @@ def main():
     # Load dataset using the same function as finetuning script
     class Args:
         dataset = 'TUAB'
+        
     args = Args()
     dataset_train, dataset_test, dataset_val, ch_names, metrics = get_dataset(args)
     
@@ -108,7 +109,7 @@ def main():
     
     # Create data loader
     test_loader = torch.utils.data.DataLoader(
-        dataset_test,
+        dataset_train,
         batch_size=batch_size,
         num_workers=10,
         pin_memory=True,
