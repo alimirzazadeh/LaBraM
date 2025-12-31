@@ -205,7 +205,7 @@ def compute_patient_level_metrics(predictions, labels, pids):
 
 def main():
     # Configuration
-    checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-49.pth" #checkpoint-best.pth"
+    checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-best.pth" #checkpoint-best.pth"
     dataset_root = "/data/netmit/sleep_lab/EEG_FM/TUAB/data/v3.0.1/edf/processed"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 64
