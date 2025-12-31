@@ -3,7 +3,6 @@
 # --------------------------------------------------------
 
 import torch
-from collections import OrderedDict
 from timm.models import create_model
 import utils
 import modeling_finetune  # Required to register the model with timm
@@ -11,8 +10,8 @@ from engine_for_finetuning import evaluate
 from run_class_finetuning import get_dataset
 
 
-def load_model_checkpoint(checkpoint_path, device, load=True):
-    """Load the finetuned model from checkpoint"""
+def load_model_checkpoint(checkpoint_path, device):
+    """Load the finetuned model from checkpoint using auto_load_model"""
     # Model configuration (matching the finetuning setup)
     model = create_model(
         'labram_base_patch200_200',
@@ -29,24 +28,39 @@ def load_model_checkpoint(checkpoint_path, device, load=True):
         init_values=0.1,
         qkv_bias=True,
     )
-    if load:
-        # Load checkpoint - match exact logic from utils.auto_load_model (line 636)
-        checkpoint = torch.load(checkpoint_path, map_location='cpu')
-        
-        print("Load ckpt from %s" % checkpoint_path)
-        
-        # Checkpoint saved during training has 'model' key directly (see utils.save_model line 588)
-        # During training resume, they use: model_without_ddp.load_state_dict(checkpoint['model'])
-        if 'model' not in checkpoint:
-            raise ValueError(f"Checkpoint does not contain 'model' key. Available keys: {checkpoint.keys()}")
-        
-        # Load directly like training script does (utils.py line 636)
-        model.load_state_dict(checkpoint['model'], strict=False)
-        print("Model state dict loaded successfully")
     
     model.to(device)
-    model.eval()
+    model_without_ddp = model  # For evaluation, model is not wrapped in DDP
     
+    # Create minimal args object for auto_load_model
+    class Args:
+        resume = checkpoint_path
+        auto_resume = False
+        enable_deepspeed = False
+        model_ema = False
+    
+    args = Args()
+    
+    # Create dummy optimizer and loss_scaler objects (auto_load_model may try to load them)
+    class DummyOptimizer:
+        def load_state_dict(self, state_dict):
+            pass  # Do nothing for evaluation
+    
+    class DummyLossScaler:
+        def load_state_dict(self, state_dict):
+            pass  # Do nothing for evaluation
+    
+    # Use the same loading function as training script
+    utils.auto_load_model(
+        args=args,
+        model=model,
+        model_without_ddp=model_without_ddp,
+        optimizer=DummyOptimizer(),
+        loss_scaler=DummyLossScaler(),
+        model_ema=None
+    )
+    
+    model.eval()
     return model
 
 
@@ -62,7 +76,7 @@ def main():
     
     # Load model
     print(f"\nLoading model from {checkpoint_path}...")
-    model = load_model_checkpoint(checkpoint_path, device, load=False)
+    model = load_model_checkpoint(checkpoint_path, device)
     print("Model loaded successfully!")
     
     # Load dataset using the same function as finetuning script
