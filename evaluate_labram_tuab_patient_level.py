@@ -76,7 +76,7 @@ def load_model_checkpoint(checkpoint_path, device):
 
 def main():
     # Configuration
-    checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-49.pth" #checkpoint-best.pth"
+    checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-best.pth" #checkpoint-49.pth" #checkpoint-best.pth"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 256
     
