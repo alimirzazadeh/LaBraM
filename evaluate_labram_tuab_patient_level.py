@@ -222,10 +222,15 @@ def evaluate_model(data_loader, model, device, ch_names=None):
                 pid = pid.cpu().tolist()
             elif not isinstance(pid, list):
                 pid = list(pid)
+            if isinstance(session, torch.Tensor):
+                session = session.cpu().tolist()
+            elif not isinstance(session, list):
+                session = list(session)
+            pid_session = [pid[i] + '_' + session[i] for i in range(len(pid))]
             
             all_predictions.append(predictions)
             all_targets.append(targets)
-            all_pids.extend(pid)
+            all_pids.extend(pid_session)
             total_loss += loss.item() * len(target)
             num_samples += len(target)
     
