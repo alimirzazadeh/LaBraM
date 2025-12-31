@@ -6,7 +6,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from einops import rearrange
 from timm.models import create_model
 import utils
@@ -33,26 +33,36 @@ def load_model_checkpoint(checkpoint_path, device):
         qkv_bias=True,
     )
     
-    # Load checkpoint
+    # Load checkpoint - match exact logic from run_class_finetuning.py
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
     
-    # Extract model state dict (handle different checkpoint formats)
-    # Check for common checkpoint keys (from finetuning script)
+    print("Load ckpt from %s" % checkpoint_path)
     checkpoint_model = None
-    model_key_options = ['model', 'module', 'model_ema', 'model_without_ddp']
-    
-    for model_key in model_key_options:
-        if model_key in checkpoint:
-            checkpoint_model = checkpoint[model_key]
-            print(f"Load state_dict by model_key = {model_key}")
+    # Use same model_key logic as finetuning script: 'model|module' (default)
+    model_key = 'model|module'
+    for model_key_option in model_key.split('|'):
+        if model_key_option in checkpoint:
+            checkpoint_model = checkpoint[model_key_option]
+            print("Load state_dict by model_key = %s" % model_key_option)
             break
     
     if checkpoint_model is None:
-        # If no standard key found, check if it's already a state dict
-        if isinstance(checkpoint, dict) and any('weight' in k or 'bias' in k for k in checkpoint.keys()):
-            checkpoint_model = checkpoint
-        else:
-            raise ValueError(f"Could not find model state dict in checkpoint. Available keys: {checkpoint.keys()}")
+        checkpoint_model = checkpoint
+    
+    # Apply model_filter_name filtering (default is 'gzp' in finetuning script)
+    # This filters keys starting with 'student.' and removes the prefix
+    model_filter_name = 'gzp'  # Match default from finetuning script
+    if (checkpoint_model is not None) and (model_filter_name != ''):
+        all_keys = list(checkpoint_model.keys())
+        new_dict = OrderedDict()
+        for key in all_keys:
+            if key.startswith('student.'):
+                new_dict[key[8:]] = checkpoint_model[key]
+            else:
+                pass  # Match exact logic from finetuning script
+        # Only replace checkpoint_model if we found student keys
+        if len(new_dict) > 0:
+            checkpoint_model = new_dict
     
     # Remove keys that might cause issues
     state_dict = model.state_dict()
@@ -67,7 +77,7 @@ def load_model_checkpoint(checkpoint_path, device):
         if "relative_position_index" in key:
             checkpoint_model.pop(key)
     
-    # Load state dict
+    # Load state dict with empty prefix (matching finetuning script)
     utils.load_state_dict(model, checkpoint_model, prefix='')
     
     model.to(device)
@@ -78,12 +88,10 @@ def load_model_checkpoint(checkpoint_path, device):
 
 def evaluate_model(model, data_loader, device, ch_names):
     """Run inference and collect predictions, labels, and patient IDs"""
-    # Only use input_chans if the model has positional embeddings
-    # Otherwise, pass None to avoid indexing None
-    if hasattr(model, 'pos_embed') and model.pos_embed is not None:
+    # Compute input_chans the same way as finetuning script
+    input_chans = None
+    if ch_names is not None:
         input_chans = utils.get_input_chans(ch_names)
-    else:
-        input_chans = None
     
     all_predictions = []
     all_labels = []
