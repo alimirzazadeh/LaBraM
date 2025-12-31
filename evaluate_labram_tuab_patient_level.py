@@ -88,9 +88,10 @@ def load_model_checkpoint(checkpoint_path, device):
 
 def evaluate_model(model, data_loader, device, ch_names):
     """Run inference and collect predictions, labels, and patient IDs"""
-    # Compute input_chans the same way as finetuning script
+    # Only compute input_chans if the model has positional embeddings
+    # The model code tries to index pos_embed with input_chans, so we need to check first
     input_chans = None
-    if ch_names is not None:
+    if ch_names is not None and hasattr(model, 'pos_embed') and model.pos_embed is not None:
         input_chans = utils.get_input_chans(ch_names)
     
     all_predictions = []
