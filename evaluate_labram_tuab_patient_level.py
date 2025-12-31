@@ -30,52 +30,19 @@ def load_model_checkpoint(checkpoint_path, device):
         qkv_bias=True,
     )
     
-    # Load checkpoint - match exact logic from run_class_finetuning.py
+    # Load checkpoint - match exact logic from utils.auto_load_model (line 636)
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
     
     print("Load ckpt from %s" % checkpoint_path)
-    checkpoint_model = None
-    # Use same model_key logic as finetuning script: 'model|module' (default)
-    model_key = 'model|module'
-    for model_key_option in model_key.split('|'):
-        if model_key_option in checkpoint:
-            checkpoint_model = checkpoint[model_key_option]
-            print("Load state_dict by model_key = %s" % model_key_option)
-            break
     
-    if checkpoint_model is None:
-        checkpoint_model = checkpoint
+    # Checkpoint saved during training has 'model' key directly (see utils.save_model line 588)
+    # During training resume, they use: model_without_ddp.load_state_dict(checkpoint['model'])
+    if 'model' not in checkpoint:
+        raise ValueError(f"Checkpoint does not contain 'model' key. Available keys: {checkpoint.keys()}")
     
-    # Apply model_filter_name filtering (default is 'gzp' in finetuning script)
-    # This filters keys starting with 'student.' and removes the prefix
-    model_filter_name = 'gzp'  # Match default from finetuning script
-    if (checkpoint_model is not None) and (model_filter_name != ''):
-        all_keys = list(checkpoint_model.keys())
-        new_dict = OrderedDict()
-        for key in all_keys:
-            if key.startswith('student.'):
-                new_dict[key[8:]] = checkpoint_model[key]
-            else:
-                pass  # Match exact logic from finetuning script
-        # Only replace checkpoint_model if we found student keys
-        if len(new_dict) > 0:
-            checkpoint_model = new_dict
-    
-    # Remove keys that might cause issues
-    state_dict = model.state_dict()
-    for k in ['head.weight', 'head.bias']:
-        if k in checkpoint_model and checkpoint_model[k].shape != state_dict[k].shape:
-            print(f"Removing key {k} from pretrained checkpoint")
-            del checkpoint_model[k]
-    
-    # Remove relative position index (will be recomputed)
-    all_keys = list(checkpoint_model.keys())
-    for key in all_keys:
-        if "relative_position_index" in key:
-            checkpoint_model.pop(key)
-    
-    # Load state dict with empty prefix (matching finetuning script)
-    utils.load_state_dict(model, checkpoint_model, prefix='')
+    # Load directly like training script does (utils.py line 636)
+    model.load_state_dict(checkpoint['model'], strict=False)
+    print("Model state dict loaded successfully")
     
     model.to(device)
     model.eval()
