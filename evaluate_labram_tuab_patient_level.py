@@ -1,18 +1,13 @@
 # --------------------------------------------------------
 # Evaluation script for LaBraM on TUAB dataset
-# Computes AUROC at both sample level and patient level
 # --------------------------------------------------------
 
 import torch
-import torch.nn as nn
-import numpy as np
-from collections import defaultdict, OrderedDict
-from einops import rearrange
+from collections import OrderedDict
 from timm.models import create_model
 import utils
-import modeling_finetune
-from pyhealth.metrics import binary_metrics_fn
-from ipdb import set_trace as bp
+from engine_for_finetuning import evaluate
+
 
 def load_model_checkpoint(checkpoint_path, device):
     """Load the finetuned model from checkpoint"""
@@ -86,126 +81,9 @@ def load_model_checkpoint(checkpoint_path, device):
     return model
 
 
-def evaluate_model(model, data_loader, device, ch_names):
-    """Run inference and collect predictions, labels, and patient IDs"""
-    # Only compute input_chans if the model has positional embeddings
-    # The model code tries to index pos_embed with input_chans, so we need to check first
-    input_chans = None
-    if ch_names is not None and hasattr(model, 'pos_embed') and model.pos_embed is not None:
-        input_chans = utils.get_input_chans(ch_names)
-    
-    all_predictions = []
-    all_labels = []
-    all_pids = []
-    
-    print("Running inference...")
-    with torch.no_grad():
-        for batch_idx, batch in enumerate(data_loader):
-            if batch_idx % 100 == 0:
-                print(f"Processing batch {batch_idx}/{len(data_loader)}")
-            
-            # Handle different return formats
-            if isinstance(batch[1], dict):
-                # When return_pid=True, batch[1] is a dict with 'y', 'pid', 'session'
-                # DataLoader batches dicts, so each value is already a list/tensor
-                EEG = batch[0]
-                labels = batch[1]['y']
-                pids = batch[1]['pid']
-                
-                # Convert pids to list if needed
-                if isinstance(pids, torch.Tensor):
-                    pids = pids.cpu().tolist()
-                elif not isinstance(pids, list):
-                    pids = list(pids)
-            else:
-                # Fallback: extract pid from filename if available
-                EEG = batch[0]
-                labels = batch[1]
-                # Get actual indices for this batch
-                batch_size_actual = len(labels)
-                start_idx = batch_idx * data_loader.batch_size
-                end_idx = min(start_idx + batch_size_actual, len(data_loader.dataset))
-                actual_indices = list(range(start_idx, end_idx))
-                # Try to get pids from dataset files
-                pids = [data_loader.dataset.files[i].split("_")[0] for i in actual_indices]
-            
-            EEG = EEG.float().to(device, non_blocking=True) / 100
-            EEG = rearrange(EEG, 'B N (A T) -> B N A T', T=200)
-            
-            # Run inference
-            with torch.cuda.amp.autocast():
-                output = model(EEG, input_chans=input_chans)
-            
-            # Apply sigmoid for binary classification
-            predictions = torch.sigmoid(output).cpu().numpy()
-            
-            # Convert labels to numpy
-            if isinstance(labels, torch.Tensor):
-                labels = labels.cpu().numpy()
-            else:
-                labels = np.array(labels)
-            
-            # Ensure labels are 1D
-            if labels.ndim > 1:
-                labels = labels.flatten()
-            
-            all_predictions.append(predictions)
-            all_labels.append(labels)
-            all_pids.extend(pids)
-    
-    # Concatenate all predictions and labels
-    all_predictions = np.concatenate(all_predictions, axis=0)
-    all_labels = np.concatenate(all_labels, axis=0)
-    
-    # Flatten if needed
-    if all_predictions.ndim > 1:
-        all_predictions = all_predictions.flatten()
-    if all_labels.ndim > 1:
-        all_labels = all_labels.flatten()
-    
-    # Ensure same length
-    assert len(all_predictions) == len(all_labels) == len(all_pids), \
-        f"Mismatch in lengths: predictions={len(all_predictions)}, labels={len(all_labels)}, pids={len(all_pids)}"
-    
-    return all_predictions, all_labels, all_pids
-
-
-def compute_patient_level_metrics(predictions, labels, pids):
-    """Average predictions per patient and compute metrics"""
-    # Group predictions and labels by patient ID
-    patient_dict = defaultdict(lambda: {'predictions': [], 'labels': []})
-    
-    for pred, label, pid in zip(predictions, labels, pids):
-        patient_dict[pid]['predictions'].append(pred)
-        patient_dict[pid]['labels'].append(label)
-    
-    # Average predictions per patient
-    patient_predictions = []
-    patient_labels = []
-    patient_ids = []
-    
-    for pid, data in patient_dict.items():
-        # Average predictions for this patient
-        avg_pred = np.mean(data['predictions'])
-        # Labels should be the same for all samples from the same patient
-        labels_for_patient = np.array(data['labels'])
-        if not np.all(labels_for_patient == labels_for_patient[0]):
-            print(f"Warning: Patient {pid} has inconsistent labels: {labels_for_patient}")
-        label = labels_for_patient[0]  # Take first label
-        
-        patient_predictions.append(avg_pred)
-        patient_labels.append(label)
-        patient_ids.append(pid)
-    
-    patient_predictions = np.array(patient_predictions)
-    patient_labels = np.array(patient_labels)
-    
-    return patient_predictions, patient_labels, patient_ids, patient_dict
-
-
 def main():
     # Configuration
-    checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-best.pth" #checkpoint-best.pth"
+    checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-best.pth"
     dataset_root = "/data/netmit/sleep_lab/EEG_FM/TUAB/data/v3.0.1/edf/processed"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 64
@@ -219,7 +97,7 @@ def main():
     ch_names = [name.split(' ')[-1].split('-')[0] for name in ch_names]
     
     print("=" * 60)
-    print("LaBraM TUAB Patient-Level Evaluation")
+    print("LaBraM TUAB Evaluation")
     print("=" * 60)
     
     # Load model
@@ -227,80 +105,42 @@ def main():
     model = load_model_checkpoint(checkpoint_path, device)
     print("Model loaded successfully!")
     
-    # Load test dataset with return_pid=True to get patient IDs
+    # Load test dataset
     print(f"\nLoading TUAB test dataset from {dataset_root}...")
-    _, test_dataset_with_pid, _ = utils.prepare_TUAB_dataset(dataset_root, return_pid=True)
+    _, test_dataset, _ = utils.prepare_TUAB_dataset(dataset_root, return_pid=False)
 
     # Create data loader
     test_loader = torch.utils.data.DataLoader(
-        test_dataset_with_pid,
+        test_dataset,
         batch_size=batch_size,
         num_workers=10,
         pin_memory=True,
         shuffle=False
     )
     
-    print(f"Test dataset size: {len(test_dataset_with_pid)}")
-    print(f"Dataset return_pid: {test_dataset_with_pid.return_pid}")
+    print(f"Test dataset size: {len(test_dataset)}")
     
     # Run evaluation
     print("\nRunning evaluation...")
-    predictions, labels, pids = evaluate_model(model, test_loader, device, ch_names)
-    
-    print(f"\nTotal samples: {len(predictions)}")
-    print(f"Unique patients: {len(set(pids))}")
-    
-    # Compute sample-level AUROC
-    print("\n" + "=" * 60)
-    print("Sample-Level Metrics")
-    print("=" * 60)
-    sample_metrics = binary_metrics_fn(
-        labels,
-        predictions,
-        metrics=["roc_auc", "pr_auc", "accuracy", "balanced_accuracy"],
-        threshold=0.5
+    metrics = evaluate(
+        test_loader,
+        model,
+        device,
+        header='Test:',
+        ch_names=ch_names,
+        metrics=['roc_auc', 'pr_auc', 'accuracy', 'balanced_accuracy'],
+        is_binary=True
     )
     
-    print(f"Sample-Level AUROC: {sample_metrics['roc_auc']:.4f}")
-    print(f"Sample-Level AUPRC: {sample_metrics['pr_auc']:.4f}")
-    print(f"Sample-Level Accuracy: {sample_metrics['accuracy']:.4f}")
-    print(f"Sample-Level Balanced Accuracy: {sample_metrics['balanced_accuracy']:.4f}")
-    
-    # Compute patient-level metrics
+    # Print results
     print("\n" + "=" * 60)
-    print("Patient-Level Metrics")
+    print("Evaluation Results")
     print("=" * 60)
-    patient_predictions, patient_labels, patient_ids, patient_dict = compute_patient_level_metrics(
-        predictions, labels, pids
-    )
-    
-    print(f"Total patients: {len(patient_predictions)}")
-    
-    # Compute patient-level AUROC
-    patient_metrics = binary_metrics_fn(
-        patient_labels,
-        patient_predictions,
-        metrics=["roc_auc", "pr_auc", "accuracy", "balanced_accuracy"],
-        threshold=0.5
-    )
-    
-    print(f"Patient-Level AUROC: {patient_metrics['roc_auc']:.4f}")
-    print(f"Patient-Level AUPRC: {patient_metrics['pr_auc']:.4f}")
-    print(f"Patient-Level Accuracy: {patient_metrics['accuracy']:.4f}")
-    print(f"Patient-Level Balanced Accuracy: {patient_metrics['balanced_accuracy']:.4f}")
-    
-    # Print patient-level statistics
-    print("\n" + "=" * 60)
-    print("Patient-Level Statistics")
-    print("=" * 60)
-    print(f"Number of patients: {len(patient_dict)}")
-    samples_per_patient = [len(data['predictions']) for data in patient_dict.values()]
-    print(f"Average samples per patient: {np.mean(samples_per_patient):.2f}")
-    print(f"Min samples per patient: {np.min(samples_per_patient)}")
-    print(f"Max samples per patient: {np.max(samples_per_patient)}")
-    
-    print("\n" + "=" * 60)
-    print("Evaluation Complete!")
+    print(f"Loss: {metrics['loss']:.4f}")
+    print(f"AUROC: {metrics['roc_auc']:.4f}")
+    print(f"AUPRC: {metrics['pr_auc']:.4f}")
+    print(f"Accuracy: {metrics['accuracy']:.4f}")
+    print(f"Balanced Accuracy: {metrics['balanced_accuracy']:.4f}")
     print("=" * 60)
 
 
