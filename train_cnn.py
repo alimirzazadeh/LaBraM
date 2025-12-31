@@ -139,7 +139,7 @@ def logger(writer, metrics, phase, epoch_index):
     writer.flush()
     
 
-def train_epoch(model, loader, optimizer, loss_fn, device, metrics, scheduler, epoch):
+def train_epoch(args, model, loader, optimizer, loss_fn, device, metrics, scheduler, epoch):
     model.train()
     running_loss = 0.0
     
@@ -247,7 +247,7 @@ def main(args):
         logger(writer, val_results, 'val', epoch)
         test_loss, test_results = validate_epoch(model, test_loader, loss_fn, device, metrics)
         logger(writer, test_results, 'test', epoch)
-        train_loss, train_results, scheduler = train_epoch(model, train_loader, optimizer, loss_fn, device, metrics, scheduler, epoch)
+        train_loss, train_results, scheduler = train_epoch(args, model, train_loader, optimizer, loss_fn, device, metrics, scheduler, epoch)
         # Get current learning rate and add to metrics
         current_lr = optimizer.param_groups[0]['lr']
         train_results['lr'] = current_lr
