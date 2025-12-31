@@ -8,6 +8,7 @@ from timm.models import create_model
 import utils
 import modeling_finetune  # Required to register the model with timm
 from engine_for_finetuning import evaluate
+from run_class_finetuning import get_dataset
 
 
 def load_model_checkpoint(checkpoint_path, device):
@@ -85,17 +86,8 @@ def load_model_checkpoint(checkpoint_path, device):
 def main():
     # Configuration
     checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-best.pth"
-    dataset_root = "/data/netmit/sleep_lab/EEG_FM/TUAB/data/v3.0.1/edf/processed"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 64
-    
-    # Channel names (matching finetuning setup)
-    ch_names = ['EEG FP1', 'EEG FP2-REF', 'EEG F3-REF', 'EEG F4-REF', 'EEG C3-REF', 'EEG C4-REF', 
-                'EEG P3-REF', 'EEG P4-REF', 'EEG O1-REF', 'EEG O2-REF', 'EEG F7-REF',
-                'EEG F8-REF', 'EEG T3-REF', 'EEG T4-REF', 'EEG T5-REF', 'EEG T6-REF', 
-                'EEG A1-REF', 'EEG A2-REF', 'EEG FZ-REF', 'EEG CZ-REF', 'EEG PZ-REF', 
-                'EEG T1-REF', 'EEG T2-REF']
-    ch_names = [name.split(' ')[-1].split('-')[0] for name in ch_names]
     
     print("=" * 60)
     print("LaBraM TUAB Evaluation")
@@ -106,30 +98,38 @@ def main():
     model = load_model_checkpoint(checkpoint_path, device)
     print("Model loaded successfully!")
     
-    # Load test dataset
-    print(f"\nLoading TUAB test dataset from {dataset_root}...")
-    _, test_dataset, _ = utils.prepare_TUAB_dataset(dataset_root, return_pid=False)
-
+    # Load dataset using the same function as finetuning script
+    class Args:
+        dataset = 'TUAB'
+    args = Args()
+    dataset_train, dataset_test, dataset_val, ch_names, metrics = get_dataset(args)
+    
+    print(f"\nTest dataset size: {len(dataset_test)}")
+    
     # Create data loader
     test_loader = torch.utils.data.DataLoader(
-        test_dataset,
+        dataset_test,
         batch_size=batch_size,
         num_workers=10,
         pin_memory=True,
         shuffle=False
     )
     
-    print(f"Test dataset size: {len(test_dataset)}")
+    # Only pass ch_names if the model has pos_embed (needed for input_chans)
+    # If use_abs_pos_emb=False, pos_embed is None and we shouldn't pass ch_names
+    ch_names_to_use = None
+    if hasattr(model, 'pos_embed') and model.pos_embed is not None:
+        ch_names_to_use = ch_names
     
     # Run evaluation
     print("\nRunning evaluation...")
-    metrics = evaluate(
+    metrics_result = evaluate(
         test_loader,
         model,
         device,
         header='Test:',
-        ch_names=ch_names,
-        metrics=['roc_auc', 'pr_auc', 'accuracy', 'balanced_accuracy'],
+        ch_names=ch_names_to_use,
+        metrics=metrics,
         is_binary=True
     )
     
@@ -137,11 +137,10 @@ def main():
     print("\n" + "=" * 60)
     print("Evaluation Results")
     print("=" * 60)
-    print(f"Loss: {metrics['loss']:.4f}")
-    print(f"AUROC: {metrics['roc_auc']:.4f}")
-    print(f"AUPRC: {metrics['pr_auc']:.4f}")
-    print(f"Accuracy: {metrics['accuracy']:.4f}")
-    print(f"Balanced Accuracy: {metrics['balanced_accuracy']:.4f}")
+    print(f"Loss: {metrics_result['loss']:.4f}")
+    for metric_name in metrics:
+        if metric_name in metrics_result:
+            print(f"{metric_name.capitalize()}: {metrics_result[metric_name]:.4f}")
     print("=" * 60)
 
 
