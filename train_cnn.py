@@ -273,6 +273,10 @@ if __name__ == "__main__":
     parser.add_argument('--load_spec_true', type=bool, default=False)
     parser.add_argument('--load_spec_recon', type=bool, default=False)
     parser.add_argument('--lr_warmup_prop', type=float, default=0.2)
+    parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
     args.resolution = 0.2
     main(args)
