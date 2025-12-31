@@ -15,12 +15,11 @@ from types import SimpleNamespace
 from train_cnn import main
 
 
-def run_single_seed(gpu_id, seed, base_args):
+def run_single_seed(gpu_id, seed, base_args, return_dict):
     """Run a single training job on a specific GPU with a specific seed."""
     
     # Set the GPU for this process
     torch.cuda.set_device(gpu_id)
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
     
     # Create args namespace
     args = SimpleNamespace(**base_args)
@@ -40,10 +39,11 @@ def run_single_seed(gpu_id, seed, base_args):
         # Run training
         result = main(args)
         print(f"Completed seed {seed} on GPU {gpu_id}")
-        return {'seed': seed, 'gpu_id': gpu_id, 'success': True, 'result': result}
+        return_dict[seed] = {'seed': seed, 'gpu_id': gpu_id, 'success': True, 'result': result}
     except Exception as e:
         print(f"Failed seed {seed} on GPU {gpu_id}: {str(e)}")
-        return {'seed': seed, 'gpu_id': gpu_id, 'success': False, 'error': str(e)}
+        import traceback
+        return_dict[seed] = {'seed': seed, 'gpu_id': gpu_id, 'success': False, 'error': str(e), 'traceback': traceback.format_exc()}
 
 
 def main_parallel():
@@ -66,7 +66,7 @@ def main_parallel():
     parser.add_argument('--lr_warmup_prop', type=float, default=0.2)
     
     # Parallel execution arguments
-    parser.add_argument('--seeds', type=int, nargs='+', default=[10, 20, 30, 40, 50, 60, 70, 80],
+    parser.add_argument('--seeds', type=int, nargs='+', default=[1, 2, 3, 4, 5, 6, 7, 8],
                        help='List of seeds to run')
     parser.add_argument('--num_gpus', type=int, default=8,
                        help='Number of GPUs to use')
@@ -97,16 +97,30 @@ def main_parallel():
     print(f"Running {len(seeds)} seeds across {num_gpus} GPUs")
     print(f"Seeds: {seeds}")
     
-    # Use multiprocessing Pool to run in parallel
-    with mp.Pool(processes=num_gpus) as pool:
-        # Create arguments for each job: (gpu_id, seed, base_args)
-        job_args = [
-            (i % num_gpus, seed, base_args) 
-            for i, seed in enumerate(seeds)
-        ]
+    # Use Manager for shared dict to collect results
+    manager = mp.Manager()
+    return_dict = manager.dict()
+    
+    # Launch processes manually (non-daemonic)
+    processes = []
+    for i, seed in enumerate(seeds):
+        gpu_id = i % num_gpus
+        p = mp.Process(target=run_single_seed, args=(gpu_id, seed, base_args, return_dict))
+        p.start()
+        processes.append(p)
         
-        # Run all jobs
-        results = pool.starmap(run_single_seed, job_args)
+        # If we've filled all GPUs, wait for this batch to complete before starting more
+        if len(processes) >= num_gpus:
+            for p in processes:
+                p.join()
+            processes = []
+    
+    # Wait for any remaining processes
+    for p in processes:
+        p.join()
+    
+    # Convert return_dict to regular dict and sort by seed
+    results = [return_dict[seed] for seed in sorted(return_dict.keys())]
     
     # Print summary
     print("\n" + "="*80)
