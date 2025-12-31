@@ -77,45 +77,8 @@ def load_model_checkpoint(checkpoint_path, device):
     return model
 
 
-def calculate_metrics(predictions, targets, metrics, pid=None, threshold=0.5):
-    """
-    Calculate metrics from predictions and targets.
-    
-    Args:
-        predictions: numpy array of predictions (probabilities for binary classification)
-        targets: numpy array of true labels
-        metrics: list of metric names to calculate
-        pid: optional numpy array of patient IDs (same length as predictions/targets)
-        threshold: threshold for binary classification (default 0.5)
-    
-    Returns:
-        dict with calculated metrics
-    """
-    # If pid is provided, average predictions per patient
-    if pid is not None:
-        # Group predictions and targets by patient ID
-        patient_dict = defaultdict(lambda: {'predictions': [], 'targets': []})
-        
-        for pred, target, p in zip(predictions, targets, pid):
-            patient_dict[p]['predictions'].append(pred)
-            patient_dict[p]['targets'].append(target)
-        
-        # Average predictions per patient and get target (assumed same for all samples from same patient)
-        patient_predictions = []
-        patient_targets = []
-        
-        for p, data in patient_dict.items():
-            avg_pred = np.mean(data['predictions'])
-            # Target should be the same for all samples from the same patient
-            if len(np.unique(data['targets'])) > 1:
-                print(f"Warning: Multiple targets found for patient {p}")
-            target_val = data['targets'][0]  # Take first target (all should be same)
-            patient_predictions.append(avg_pred)
-            patient_targets.append(target_val)
-        
-        predictions = np.array(patient_predictions)
-        targets = np.array(patient_targets)
-    
+def _calculate_metrics_single(predictions, targets, metrics, threshold=0.5):
+    """Helper function to calculate metrics for a single set of predictions and targets"""
     results = {}
     
     # Flatten arrays to ensure 1D
@@ -146,6 +109,67 @@ def calculate_metrics(predictions, targets, metrics, pid=None, threshold=0.5):
     if 'balanced_accuracy' in metrics:
         pred_binary = (predictions >= threshold).astype(int)
         results['balanced_accuracy'] = balanced_accuracy_score(targets, pred_binary)
+    
+    return results
+
+
+def calculate_metrics(predictions, targets, metrics, pid=None, threshold=0.5):
+    """
+    Calculate metrics from predictions and targets.
+    
+    Args:
+        predictions: numpy array of predictions (probabilities for binary classification)
+        targets: numpy array of true labels
+        metrics: list of metric names to calculate
+        pid: optional numpy array of patient IDs (same length as predictions/targets)
+        threshold: threshold for binary classification (default 0.5)
+    
+    Returns:
+        dict with calculated metrics. If pid is provided, returns both sample-level
+        and patient-level metrics with 'sample_' and 'patient_' prefixes.
+    """
+    results = {}
+    
+    # Always calculate sample-level metrics
+    sample_results = _calculate_metrics_single(predictions, targets, metrics, threshold)
+    if pid is not None:
+        # Add 'sample_' prefix for sample-level metrics
+        for key, value in sample_results.items():
+            results[f'sample_{key}'] = value
+    else:
+        # If no pid, just return sample-level metrics without prefix
+        results = sample_results
+    
+    # If pid is provided, also calculate patient-level metrics
+    if pid is not None:
+        # Group predictions and targets by patient ID
+        patient_dict = defaultdict(lambda: {'predictions': [], 'targets': []})
+        
+        for pred, target, p in zip(predictions, targets, pid):
+            patient_dict[p]['predictions'].append(pred)
+            patient_dict[p]['targets'].append(target)
+        
+        # Average predictions per patient and get target (assumed same for all samples from same patient)
+        patient_predictions = []
+        patient_targets = []
+        
+        for p, data in patient_dict.items():
+            avg_pred = np.mean(data['predictions'])
+            # Target should be the same for all samples from the same patient
+            if len(np.unique(data['targets'])) > 1:
+                print(f"Warning: Multiple targets found for patient {p}")
+            target_val = data['targets'][0]  # Take first target (all should be same)
+            patient_predictions.append(avg_pred)
+            patient_targets.append(target_val)
+        
+        patient_predictions = np.array(patient_predictions)
+        patient_targets = np.array(patient_targets)
+        
+        # Calculate patient-level metrics
+        patient_results = _calculate_metrics_single(patient_predictions, patient_targets, metrics, threshold)
+        # Add 'patient_' prefix for patient-level metrics
+        for key, value in patient_results.items():
+            results[f'patient_{key}'] = value
     
     return results
 
@@ -274,10 +298,31 @@ def main():
     print("Evaluation Results")
     print("=" * 60)
     print(f"Loss: {metrics_result['loss']:.4f}")
-    print(f"AUROC: {metrics_result['roc_auc']:.4f}")
-    print(f"AUPRC: {metrics_result['pr_auc']:.4f}")
-    print(f"Accuracy: {metrics_result['accuracy']:.4f}")
-    print(f"Balanced Accuracy: {metrics_result['balanced_accuracy']:.4f}")
+    
+    # Check if we have patient-level metrics (indicated by 'patient_' prefix)
+    has_patient_metrics = any(key.startswith('patient_') for key in metrics_result.keys())
+    
+    if has_patient_metrics:
+        # Print sample-level metrics
+        print("\nSample-Level Metrics:")
+        print(f"  AUROC: {metrics_result.get('sample_roc_auc', 0.0):.4f}")
+        print(f"  AUPRC: {metrics_result.get('sample_pr_auc', 0.0):.4f}")
+        print(f"  Accuracy: {metrics_result.get('sample_accuracy', 0.0):.4f}")
+        print(f"  Balanced Accuracy: {metrics_result.get('sample_balanced_accuracy', 0.0):.4f}")
+        
+        # Print patient-level metrics
+        print("\nPatient-Level Metrics:")
+        print(f"  AUROC: {metrics_result.get('patient_roc_auc', 0.0):.4f}")
+        print(f"  AUPRC: {metrics_result.get('patient_pr_auc', 0.0):.4f}")
+        print(f"  Accuracy: {metrics_result.get('patient_accuracy', 0.0):.4f}")
+        print(f"  Balanced Accuracy: {metrics_result.get('patient_balanced_accuracy', 0.0):.4f}")
+    else:
+        # Print sample-level metrics without prefix
+        print(f"AUROC: {metrics_result.get('roc_auc', 0.0):.4f}")
+        print(f"AUPRC: {metrics_result.get('pr_auc', 0.0):.4f}")
+        print(f"Accuracy: {metrics_result.get('accuracy', 0.0):.4f}")
+        print(f"Balanced Accuracy: {metrics_result.get('balanced_accuracy', 0.0):.4f}")
+    
     print("=" * 60)
 
 
