@@ -3,10 +3,11 @@
 # --------------------------------------------------------
 
 import torch
+import numpy as np
+from einops import rearrange
 from timm.models import create_model
 import utils
 import modeling_finetune  # Required to register the model with timm
-from engine_for_finetuning import evaluate
 from run_class_finetuning import get_dataset
 
 
@@ -74,9 +75,69 @@ def load_model_checkpoint(checkpoint_path, device):
     return model
 
 
+def evaluate_model(data_loader, model, device, ch_names=None):
+    """Custom evaluation function that loops through dataloader and calculates metrics"""
+    model.eval()
+    
+    # Setup input_chans if needed
+    input_chans = None
+    if ch_names is not None:
+        input_chans = utils.get_input_chans(ch_names)
+    
+    # Loss function for binary classification
+    criterion = torch.nn.BCEWithLogitsLoss()
+    
+    all_predictions = []
+    all_targets = []
+    total_loss = 0.0
+    num_samples = 0
+    
+    print("Running evaluation...")
+    with torch.no_grad():
+        for batch_idx, batch in enumerate(data_loader):
+            if batch_idx % 100 == 0:
+                print(f"Processing batch {batch_idx}/{len(data_loader)}")
+            
+            EEG = batch[0]
+            target = batch[-1]
+            
+            # Preprocess data (matching engine_for_finetuning.py)
+            EEG = EEG.float().to(device, non_blocking=True) / 100
+            EEG = rearrange(EEG, 'B N (A T) -> B N A T', T=200)
+            target = target.to(device, non_blocking=True).float().unsqueeze(-1)
+            
+            # Forward pass
+            with torch.cuda.amp.autocast():
+                output = model(EEG, input_chans=input_chans)
+                loss = criterion(output, target)
+            
+            # Apply sigmoid for binary classification
+            predictions = torch.sigmoid(output).cpu().numpy()
+            targets = target.cpu().numpy()
+            
+            all_predictions.append(predictions)
+            all_targets.append(targets)
+            total_loss += loss.item() * len(target)
+            num_samples += len(target)
+    
+    # Concatenate all predictions and targets
+    all_predictions = np.concatenate(all_predictions, axis=0).flatten()
+    all_targets = np.concatenate(all_targets, axis=0).flatten()
+    
+    # Calculate average loss
+    avg_loss = total_loss / num_samples
+    
+    # Calculate metrics using utils.get_metrics
+    metrics = ['roc_auc', 'pr_auc', 'accuracy', 'balanced_accuracy']
+    results = utils.get_metrics(all_predictions, all_targets, metrics, is_binary=True, threshold=0.5)
+    results['loss'] = avg_loss
+    
+    return results
+
+
 def main():
     # Configuration
-    checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-best.pth" #checkpoint-49.pth" #checkpoint-best.pth"
+    checkpoint_path = "checkpoints/finetune_tuab_base_bs512/checkpoint-49.pth" #checkpoint-49.pth" #checkpoint-best.pth"
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     batch_size = 256
     
@@ -115,14 +176,11 @@ def main():
     
     # Run evaluation
     print("\nRunning evaluation...")
-    metrics_result = evaluate(
+    metrics_result = evaluate_model(
         test_loader,
         model,
         device,
-        header='Test:',
-        ch_names=ch_names_to_use,
-        metrics=metrics,
-        is_binary=True
+        ch_names=ch_names_to_use
     )
     
     # Print results
@@ -130,9 +188,10 @@ def main():
     print("Evaluation Results")
     print("=" * 60)
     print(f"Loss: {metrics_result['loss']:.4f}")
-    for metric_name in metrics:
-        if metric_name in metrics_result:
-            print(f"{metric_name.capitalize()}: {metrics_result[metric_name]:.4f}")
+    print(f"AUROC: {metrics_result['roc_auc']:.4f}")
+    print(f"AUPRC: {metrics_result['pr_auc']:.4f}")
+    print(f"Accuracy: {metrics_result['accuracy']:.4f}")
+    print(f"Balanced Accuracy: {metrics_result['balanced_accuracy']:.4f}")
     print("=" * 60)
 
 
