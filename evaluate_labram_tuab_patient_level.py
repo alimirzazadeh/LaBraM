@@ -6,6 +6,7 @@ import torch
 from collections import OrderedDict
 from timm.models import create_model
 import utils
+import modeling_finetune  # Required to register the model with timm
 from engine_for_finetuning import evaluate
 
 
