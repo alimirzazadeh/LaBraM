@@ -5,6 +5,8 @@
 import torch
 import numpy as np
 from einops import rearrange
+from collections import defaultdict
+from sklearn.metrics import roc_auc_score, average_precision_score, accuracy_score, balanced_accuracy_score
 from timm.models import create_model
 import utils
 import modeling_finetune  # Required to register the model with timm
@@ -75,6 +77,77 @@ def load_model_checkpoint(checkpoint_path, device):
     return model
 
 
+def calculate_metrics(predictions, targets, metrics, pid=None, threshold=0.5):
+    """
+    Calculate metrics from predictions and targets.
+    
+    Args:
+        predictions: numpy array of predictions (probabilities for binary classification)
+        targets: numpy array of true labels
+        metrics: list of metric names to calculate
+        pid: optional numpy array of patient IDs (same length as predictions/targets)
+        threshold: threshold for binary classification (default 0.5)
+    
+    Returns:
+        dict with calculated metrics
+    """
+    # If pid is provided, average predictions per patient
+    if pid is not None:
+        # Group predictions and targets by patient ID
+        patient_dict = defaultdict(lambda: {'predictions': [], 'targets': []})
+        
+        for pred, target, p in zip(predictions, targets, pid):
+            patient_dict[p]['predictions'].append(pred)
+            patient_dict[p]['targets'].append(target)
+        
+        # Average predictions per patient and get target (assumed same for all samples from same patient)
+        patient_predictions = []
+        patient_targets = []
+        
+        for p, data in patient_dict.items():
+            avg_pred = np.mean(data['predictions'])
+            # Target should be the same for all samples from the same patient
+            target_val = data['targets'][0]  # Take first target (all should be same)
+            patient_predictions.append(avg_pred)
+            patient_targets.append(target_val)
+        
+        predictions = np.array(patient_predictions)
+        targets = np.array(patient_targets)
+    
+    results = {}
+    
+    # Flatten arrays to ensure 1D
+    predictions = predictions.flatten()
+    targets = targets.flatten()
+    
+    # Check if we have valid targets (not all 0 or all 1) for AUROC
+    unique_targets = np.unique(targets)
+    has_both_classes = len(unique_targets) > 1
+    
+    # Calculate requested metrics
+    if 'roc_auc' in metrics:
+        if has_both_classes:
+            results['roc_auc'] = roc_auc_score(targets, predictions)
+        else:
+            results['roc_auc'] = 0.0
+    
+    if 'pr_auc' in metrics:
+        if has_both_classes:
+            results['pr_auc'] = average_precision_score(targets, predictions)
+        else:
+            results['pr_auc'] = 0.0
+    
+    if 'accuracy' in metrics:
+        pred_binary = (predictions >= threshold).astype(int)
+        results['accuracy'] = accuracy_score(targets, pred_binary)
+    
+    if 'balanced_accuracy' in metrics:
+        pred_binary = (predictions >= threshold).astype(int)
+        results['balanced_accuracy'] = balanced_accuracy_score(targets, pred_binary)
+    
+    return results
+
+
 def evaluate_model(data_loader, model, device, ch_names=None):
     """Custom evaluation function that loops through dataloader and calculates metrics"""
     model.eval()
@@ -89,6 +162,7 @@ def evaluate_model(data_loader, model, device, ch_names=None):
     
     all_predictions = []
     all_targets = []
+    all_pids = []
     total_loss = 0.0
     num_samples = 0
     
@@ -99,7 +173,9 @@ def evaluate_model(data_loader, model, device, ch_names=None):
                 print(f"Processing batch {batch_idx}/{len(data_loader)}")
             
             EEG = batch[0]
-            target = batch[-1]
+            target = batch[-1]['y']
+            pid = batch[-1]['pid']
+            session = batch[-1]['session']
             
             # Preprocess data (matching engine_for_finetuning.py)
             EEG = EEG.float().to(device, non_blocking=True) / 100
@@ -115,21 +191,29 @@ def evaluate_model(data_loader, model, device, ch_names=None):
             predictions = torch.sigmoid(output).cpu().numpy()
             targets = target.cpu().numpy()
             
+            # Convert pid to list if it's a tensor
+            if isinstance(pid, torch.Tensor):
+                pid = pid.cpu().tolist()
+            elif not isinstance(pid, list):
+                pid = list(pid)
+            
             all_predictions.append(predictions)
             all_targets.append(targets)
+            all_pids.extend(pid)
             total_loss += loss.item() * len(target)
             num_samples += len(target)
     
     # Concatenate all predictions and targets
     all_predictions = np.concatenate(all_predictions, axis=0).flatten()
     all_targets = np.concatenate(all_targets, axis=0).flatten()
+    all_pids = np.array(all_pids) if all_pids else None
     
     # Calculate average loss
     avg_loss = total_loss / num_samples
     
-    # Calculate metrics using utils.get_metrics
+    # Calculate metrics using our custom function
     metrics = ['roc_auc', 'pr_auc', 'accuracy', 'balanced_accuracy']
-    results = utils.get_metrics(all_predictions, all_targets, metrics, is_binary=True, threshold=0.5)
+    results = calculate_metrics(all_predictions, all_targets, metrics, pid=None, threshold=0.5)
     results['loss'] = avg_loss
     
     return results
@@ -155,7 +239,7 @@ def main():
         dataset = 'TUAB'
         
     args = Args()
-    dataset_train, dataset_test, dataset_val, ch_names, metrics = get_dataset(args)
+    dataset_train, dataset_test, dataset_val, ch_names, metrics = get_dataset(args, return_pid=True)
     
     print(f"\nTest dataset size: {len(dataset_test)}")
     
