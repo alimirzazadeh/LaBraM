@@ -63,6 +63,7 @@ def load_model_checkpoint(checkpoint_path, device):
     # Create minimal args object for auto_load_model
     class Args:
         output_dir = 'checkpoints/finetune_tuab_base_bs512'
+        resume = ''
         auto_resume = True
         enable_deepspeed = False
         model_ema = False
