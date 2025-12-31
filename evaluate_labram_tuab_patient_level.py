@@ -107,6 +107,8 @@ def calculate_metrics(predictions, targets, metrics, pid=None, threshold=0.5):
         for p, data in patient_dict.items():
             avg_pred = np.mean(data['predictions'])
             # Target should be the same for all samples from the same patient
+            if len(np.unique(data['targets'])) > 1:
+                print(f"Warning: Multiple targets found for patient {p}")
             target_val = data['targets'][0]  # Take first target (all should be same)
             patient_predictions.append(avg_pred)
             patient_targets.append(target_val)
@@ -213,7 +215,7 @@ def evaluate_model(data_loader, model, device, ch_names=None):
     
     # Calculate metrics using our custom function
     metrics = ['roc_auc', 'pr_auc', 'accuracy', 'balanced_accuracy']
-    results = calculate_metrics(all_predictions, all_targets, metrics, pid=None, threshold=0.5)
+    results = calculate_metrics(all_predictions, all_targets, metrics, pid=all_pids, threshold=0.5)
     results['loss'] = avg_loss
     
     return results
