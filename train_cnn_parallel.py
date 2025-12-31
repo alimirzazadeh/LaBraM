@@ -21,8 +21,8 @@ def run_single_seed(gpu_id, seed, base_args, return_dict):
     # Set the GPU for this process
     torch.cuda.set_device(gpu_id)
     
-    # Create args namespace
-    args = SimpleNamespace(**base_args)
+    # Create a complete args namespace with all fields
+    args = argparse.Namespace(**base_args)
     args.seed = seed
     args.resolution = 0.2  # Set as in original main
     
@@ -43,6 +43,7 @@ def run_single_seed(gpu_id, seed, base_args, return_dict):
     except Exception as e:
         print(f"Failed seed {seed} on GPU {gpu_id}: {str(e)}")
         import traceback
+        traceback.print_exc()
         return_dict[seed] = {'seed': seed, 'gpu_id': gpu_id, 'success': False, 'error': str(e), 'traceback': traceback.format_exc()}
 
 
