@@ -15,47 +15,28 @@ def load_model_checkpoint(checkpoint_path, device):
     # Load checkpoint to get the saved args (contains model configuration)
     checkpoint = torch.load(checkpoint_path, map_location='cpu')
     
-    if 'args' in checkpoint:
-        saved_args = checkpoint['args']
-        print(f"Loading model with configuration from checkpoint:")
-        print(f"  - abs_pos_emb: {getattr(saved_args, 'abs_pos_emb', False)}")
-        print(f"  - qkv_bias: {getattr(saved_args, 'qkv_bias', True)}")
-        print(f"  - rel_pos_bias: {getattr(saved_args, 'rel_pos_bias', True)}")
-        
-        # Create model with configuration from checkpoint
-        model = create_model(
-            getattr(saved_args, 'model', 'labram_base_patch200_200'),
-            pretrained=False,
-            num_classes=getattr(saved_args, 'nb_classes', 1),
-            drop_rate=getattr(saved_args, 'drop', 0.0),
-            drop_path_rate=getattr(saved_args, 'drop_path', 0.1),
-            attn_drop_rate=getattr(saved_args, 'attn_drop_rate', 0.0),
-            drop_block_rate=None,
-            use_mean_pooling=getattr(saved_args, 'use_mean_pooling', True),
-            init_scale=getattr(saved_args, 'init_scale', 0.001),
-            use_rel_pos_bias=getattr(saved_args, 'rel_pos_bias', True),
-            use_abs_pos_emb=getattr(saved_args, 'abs_pos_emb', False),
-            init_values=getattr(saved_args, 'layer_scale_init_value', 0.1),
-            qkv_bias=getattr(saved_args, 'qkv_bias', True),
-        )
-    else:
-        # Fallback to default configuration if args not in checkpoint
-        print("Warning: Checkpoint does not contain 'args', using default configuration")
-        model = create_model(
-            'labram_base_patch200_200',
-            pretrained=False,
-            num_classes=1,
-            drop_rate=0.0,
-            drop_path_rate=0.1,
-            attn_drop_rate=0.0,
-            drop_block_rate=None,
-            use_mean_pooling=True,
-            init_scale=0.001,
-            use_rel_pos_bias=True,
-            use_abs_pos_emb=False,
-            init_values=0.1,
-            qkv_bias=True,
-        )
+    saved_args = checkpoint['args']
+    print(f"Loading model with configuration from checkpoint:")
+    print(f"  - abs_pos_emb: {getattr(saved_args, 'abs_pos_emb', False)}")
+    print(f"  - qkv_bias: {getattr(saved_args, 'qkv_bias', True)}")
+    print(f"  - rel_pos_bias: {getattr(saved_args, 'rel_pos_bias', True)}")
+    
+    # Create model with configuration from checkpoint
+    model = create_model(
+        getattr(saved_args, 'model', 'labram_base_patch200_200'),
+        pretrained=False,
+        num_classes=getattr(saved_args, 'nb_classes', 1),
+        drop_rate=getattr(saved_args, 'drop', 0.0),
+        drop_path_rate=getattr(saved_args, 'drop_path', 0.1),
+        attn_drop_rate=getattr(saved_args, 'attn_drop_rate', 0.0),
+        drop_block_rate=None,
+        use_mean_pooling=getattr(saved_args, 'use_mean_pooling', True),
+        init_scale=getattr(saved_args, 'init_scale', 0.001),
+        use_rel_pos_bias=getattr(saved_args, 'rel_pos_bias', True),
+        use_abs_pos_emb=getattr(saved_args, 'abs_pos_emb', False),
+        init_values=getattr(saved_args, 'layer_scale_init_value', 0.1),
+        qkv_bias=getattr(saved_args, 'qkv_bias', True),
+    )
     
     model.to(device)
     model_without_ddp = model  # For evaluation, model is not wrapped in DDP
@@ -63,8 +44,8 @@ def load_model_checkpoint(checkpoint_path, device):
     # Create minimal args object for auto_load_model
     class Args:
         output_dir = 'checkpoints/finetune_tuab_base_bs512'
-        resume = ''
-        auto_resume = True
+        resume = checkpoint_path
+        auto_resume = False
         enable_deepspeed = False
         model_ema = False
     
