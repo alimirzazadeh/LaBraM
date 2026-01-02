@@ -219,9 +219,9 @@ def main(args):
         valset = TUEVBaselineDataset(args, mode='val', window_length=window_length, resolution=resolution)
         testset = TUEVBaselineDataset(args, mode='test', window_length=window_length, resolution=resolution)
 
-    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    val_loader = DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, persistent_workers=True)
+    val_loader = DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, persistent_workers=True)
+    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, persistent_workers=True)
     num_channels = 19 if args.load_spec_true or args.load_spec_recon else 23
     if args.dataset == 'TUAB':
         if args.load_spec_true or args.load_spec_recon:
