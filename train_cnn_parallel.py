@@ -21,6 +21,15 @@ def run_single_seed(gpu_id, seed, base_args, return_dict):
     # Set the GPU for this process
     torch.cuda.set_device(gpu_id)
     
+    # Pin this process and its children to specific CPU cores
+    # Divide 55 CPUs among 8 GPUs: ~6-7 cores per GPU
+    cores_per_gpu = 7
+    start_core = gpu_id * cores_per_gpu
+    end_core = min(start_core + cores_per_gpu, 55)
+    cpu_affinity = list(range(start_core, end_core))
+    os.sched_setaffinity(0, cpu_affinity)
+    print(f"GPU {gpu_id} pinned to CPUs {cpu_affinity}")
+    
     # Create a complete args namespace with all fields
     args = argparse.Namespace(**base_args)
     args.seed = seed
