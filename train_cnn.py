@@ -255,6 +255,7 @@ def main(args):
         # scheduler.step()
         print(f"Epoch {epoch+1}/{epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
+    return train_results, val_results, test_results
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 

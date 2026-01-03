@@ -152,7 +152,31 @@ def main_parallel():
     
     return results
 
+def calculate_final_results(results):
+    from ipdb import set_trace as bp
+    import numpy as np
+    bp() 
+    print('Based on Final Epoch: ')
+    results_test = [item['result'][2] for item in results]
+    results_val = [item['result'][1] for item in results]
+    results_train = [item['result'][0] for item in results]
+    auroc_last = np.mean([result['auroc'] for result in results_test])
+    auprc_last = np.mean([result['auprc'] for result in results_test])
+    acc_last = np.mean([result['balanced_accuracy'] for result in results_test])
+    print(f'Test AUROC: {auroc_last:.4f}, Test AUPRC: {auprc_last:.4f}, Test Accuracy: {acc_last:.4f}')
+    
+    auroc_last = np.mean([result['auroc'] for result in results_val])
+    auprc_last = np.mean([result['auprc'] for result in results_val])
+    acc_last = np.mean([result['balanced_accuracy'] for result in results_val])
+    print(f'Val AUROC: {auroc_last:.4f}, Val AUPRC: {auprc_last:.4f}, Val Accuracy: {acc_last:.4f}')
+    
+    auroc_last = np.mean([result['auroc'] for result in results_train])
+    auprc_last = np.mean([result['auprc'] for result in results_train])
+    acc_last = np.mean([result['balanced_accuracy'] for result in results_train])
+    print(f'Train AUROC: {auroc_last:.4f}, Train AUPRC: {auprc_last:.4f}, Train Accuracy: {acc_last:.4f}')
+    
 
 if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
-    main_parallel()
+    results = main_parallel()
+    calculate_final_results(results)
