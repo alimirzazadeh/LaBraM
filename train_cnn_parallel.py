@@ -105,7 +105,6 @@ def main_parallel():
         'load_spec_recon': args.load_spec_recon,
         'lr_warmup_prop': args.lr_warmup_prop
     }
-    bp() 
     seeds = args.seeds
     num_gpus = args.num_gpus
     
