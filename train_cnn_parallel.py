@@ -76,8 +76,8 @@ def main_parallel():
     parser.add_argument('--stride_length', type=int, default=1)
     parser.add_argument('--bandwidth', type=float, default=2.0)
     parser.add_argument('--multitaper', type=bool, default=True)
-    parser.add_argument('--load_spec_true', type=bool, default=True)
-    parser.add_argument('--load_spec_recon', type=bool, default=False)
+    parser.add_argument('--load_spec_true', default=False, action='store_true')
+    parser.add_argument('--load_spec_recon', default=False, action='store_true')
     parser.add_argument('--lr_warmup_prop', type=float, default=0.2)
     
     # Parallel execution arguments
