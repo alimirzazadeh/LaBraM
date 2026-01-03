@@ -63,7 +63,7 @@ def main_parallel():
     parser.add_argument('--dataset', type=str, default='TUAB', choices=['TUAB', 'TUEV'])
     parser.add_argument('--model_type', type=str, default='resnet', choices=['conv1d', 'conv2d', 'resnet'])
     parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--num_workers', type=int, default=2)
     parser.add_argument('--lr', type=float, default=1e-4)
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--window_length', type=int, default=4)
