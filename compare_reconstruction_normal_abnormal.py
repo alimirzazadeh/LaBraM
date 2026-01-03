@@ -9,8 +9,9 @@ def remove_nan_inf(x):
     nan_mask = np.isnan(x)
     inf_mask = np.isinf(x)
     fill_value = np.nanmean(x[~nan_mask & ~inf_mask])
-    print('total nan: ', np.mean(nan_mask))
-    print('total inf: ', np.mean(inf_mask))
+    if inf_mask.mean() > 0 or nan_mask.mean() > 0:
+        print('total nan: ', np.mean(nan_mask))
+        print('total inf: ', np.mean(inf_mask))
     x[nan_mask] = fill_value
     x[inf_mask] = fill_value
     return x
