@@ -17,6 +17,9 @@ from train_cnn import main
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.tensorboard.summary import hparams
 
+#time it 
+import time
+start_time = time.time()
 def run_single_seed(gpu_id, seed, base_args, return_dict):
     """Run a single training job on a specific GPU with a specific seed."""
     
@@ -217,15 +220,19 @@ if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
     results, base_args = main_parallel()
     final_metrics, exp_name = calculate_final_results(results)
+    total_time = time.time() - start_time
+    print(f'Total time: {total_time:.2f} seconds')
     bp() 
     hp = {
         'lr': base_args['lr'],
         'batch_size': base_args['batch_size'],
         'bandwidth': base_args['bandwidth'],
-        'source': 'timeseries' if (not base_args['load_spec_true'] and not base_args['load_spec_recon']) else 'true_spec' if base_args['load_spec_true'] else 'recon_spec' if base_args['load_spec_recon'] else ''
+        'source': 'timeseries' if (not base_args['load_spec_true'] and not base_args['load_spec_recon']) else 'true_spec' if base_args['load_spec_true'] else 'recon_spec' if base_args['load_spec_recon'] else '',
         'window_length': base_args['window_length'],
         'model_type': base_args['model_type'],
         'dataset': base_args['dataset'],
+        'total_time': total_time,
+        'num_workers': base_args['num_workers'],
     }
     writer = SummaryWriter(log_dir=exp_name)
     writer.file_writer.add_summary(hparams(hp, final_metrics))
