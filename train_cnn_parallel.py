@@ -179,18 +179,18 @@ def calculate_final_results(results):
     all_auprc_train = [[res['auprc'] for res in result] for result in results_train]
     all_acc_train = [[res['balanced_accuracy'] for res in result] for result in results_train]
 
-    auroc_last = np.mean([auroc[-1] for auroc in all_auroc_test])
-    auprc_last = np.mean([auprc[-1] for auprc in all_auprc_test])
-    acc_last = np.mean([acc[-1] for acc in all_acc_test])
-    print(f'Last Test AUROC: {auroc_last:.4f}, Last Test AUPRC: {auprc_last:.4f}, Last Test Accuracy: {acc_last:.4f}')
-    auroc_last = np.mean([auroc[-1] for auroc in all_auroc_val])
-    auprc_last = np.mean([auprc[-1] for auprc in all_auprc_val])
-    acc_last = np.mean([acc[-1] for acc in all_acc_val])
-    print(f'Last Val AUROC: {auroc_last:.4f}, Last Val AUPRC: {auprc_last:.4f}, Last Val Accuracy: {acc_last:.4f}')
-    auroc_last = np.mean([auroc[-1] for auroc in all_auroc_train])
-    auprc_last = np.mean([auprc[-1] for auprc in all_auprc_train])
-    acc_last = np.mean([acc[-1] for acc in all_acc_train])
-    print(f'Last Train AUROC: {auroc_last:.4f}, Last Train AUPRC: {auprc_last:.4f}, Last Train Accuracy: {acc_last:.4f}')
+    auroc_last_test = np.mean([auroc[-1] for auroc in all_auroc_test])
+    auprc_last_test = np.mean([auprc[-1] for auprc in all_auprc_test])
+    acc_last_test = np.mean([acc[-1] for acc in all_acc_test])
+    print(f'Last Test AUROC: {auroc_last_test:.4f}, Last Test AUPRC: {auprc_last_test:.4f}, Last Test Accuracy: {acc_last_test:.4f}')
+    auroc_last_val = np.mean([auroc[-1] for auroc in all_auroc_val])
+    auprc_last_val = np.mean([auprc[-1] for auprc in all_auprc_val])
+    acc_last_val = np.mean([acc[-1] for acc in all_acc_val])
+    print(f'Last Val AUROC: {auroc_last_val:.4f}, Last Val AUPRC: {auprc_last_val:.4f}, Last Val Accuracy: {acc_last_val:.4f}')
+    auroc_last_train = np.mean([auroc[-1] for auroc in all_auroc_train])
+    auprc_last_train = np.mean([auprc[-1] for auprc in all_auprc_train])
+    acc_last_train = np.mean([acc[-1] for acc in all_acc_train])
+    print(f'Last Train AUROC: {auroc_last_train:.4f}, Last Train AUPRC: {auprc_last_train:.4f}, Last Train Accuracy: {acc_last_train:.4f}')
     
     auroc_best_test = np.mean([np.max(auroc) for auroc in all_auroc_test])
     auprc_best_test = np.mean([np.max(auprc) for auprc in all_auprc_test])
@@ -213,7 +213,16 @@ def calculate_final_results(results):
                      "best/val/accuracy": acc_best_val,
                      "best/train/auroc": auroc_best_train,
                      "best/train/auprc": auprc_best_train,
-                     "best/train/accuracy": acc_best_train}
+                     "best/train/accuracy": acc_best_train,
+                     "last/test/auroc": auroc_last_test,
+                     "last/test/auprc": auprc_last_test,
+                     "last/test/accuracy": acc_last_test,
+                     "last/val/auroc": auroc_last_val,
+                     "last/val/auprc": auprc_last_val,
+                     "last/val/accuracy": acc_last_val,
+                     "last/train/auroc": auroc_last_train,
+                     "last/train/auprc": auprc_last_train,
+                     "last/train/accuracy": acc_last_train}
     return final_metrics, exp_name
 
 if __name__ == "__main__":
@@ -221,8 +230,7 @@ if __name__ == "__main__":
     results, base_args = main_parallel()
     final_metrics, exp_name = calculate_final_results(results)
     total_time = time.time() - start_time
-    print(f'Total time: {total_time:.2f} seconds')
-    bp() 
+    print(f'Total time: {total_time / 3600:.2f} hours')
     hp = {
         'lr': base_args['lr'],
         'batch_size': base_args['batch_size'],
@@ -231,9 +239,33 @@ if __name__ == "__main__":
         'window_length': base_args['window_length'],
         'model_type': base_args['model_type'],
         'dataset': base_args['dataset'],
-        'total_time': total_time,
+        'total_time': np.round(total_time / 3600, 2),
         'num_workers': base_args['num_workers'],
     }
+    # Create writer
     writer = SummaryWriter(log_dir=exp_name)
-    writer.file_writer.add_summary(hparams(hp, final_metrics))
+    
+    # 1) Make sure metric values are plain Python floats
+    final_metrics_clean = {k: float(v) for k, v in final_metrics.items()}
+
+    # 2) Write the hparams plugin metadata
+    session_start, session_end, hparams_summary = hparams(hp, final_metrics_clean)
+    writer.file_writer.add_summary(session_start, global_step=0)
+    writer.file_writer.add_summary(session_end, global_step=0)
+    writer.file_writer.add_summary(hparams_summary, global_step=0)
+
+    # 3) IMPORTANT: write the metric scalars with the *same tags*
+    for k, v in final_metrics_clean.items():
+        writer.add_scalar(k, v, global_step=0)
+
     writer.flush()
+    writer.close()
+    
+    # writer = SummaryWriter(log_dir=exp_name)
+    # session_start, session_end, hparams_summary = hparams(hp, final_metrics)
+
+    # # Add all three events
+    # writer.file_writer.add_summary(session_start, global_step=0)
+    # writer.file_writer.add_summary(session_end, global_step=0)
+    # writer.file_writer.add_summary(hparams_summary, global_step=0)
+    # writer.file_writer.flush()
