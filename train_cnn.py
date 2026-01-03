@@ -265,7 +265,7 @@ def main(args):
         all_train_results.append(train_results)
         all_val_results.append(val_results)
         all_test_results.append(test_results)
-    return all_train_results, all_val_results, all_test_results
+    return all_train_results, all_val_results, all_test_results, f'/data/scratch/alimirz/2025/EEG_FM/{args.dataset}_V2/{exp_name}'
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 

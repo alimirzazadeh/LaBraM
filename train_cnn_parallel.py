@@ -14,7 +14,8 @@ import numpy as np
 from ipdb import set_trace as bp
 # Import your training function
 from train_cnn import main
-
+from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard.summary import hparams
 
 def run_single_seed(gpu_id, seed, base_args, return_dict):
     """Run a single training job on a specific GPU with a specific seed."""
@@ -151,11 +152,16 @@ def main_parallel():
         print("\nSome runs failed. Check the output above.")
         sys.exit(1)
     
-    return results
+    return results, base_args
 
 def calculate_final_results(results):
-    bp()
+
     print('Based on Final Epoch: ')
+    exp_name = results[0]['result'][3]
+    last_underscore = exp_name[::-1].index('_')
+    exp_name = exp_name[:-last_underscore-1] + '_allseeds'
+    
+    
     results_test = [item['result'][2] for item in results]
     results_val = [item['result'][1] for item in results]
     results_train = [item['result'][0] for item in results]
@@ -169,7 +175,7 @@ def calculate_final_results(results):
     all_auroc_train = [[res['auroc'] for res in result] for result in results_train]
     all_auprc_train = [[res['auprc'] for res in result] for result in results_train]
     all_acc_train = [[res['balanced_accuracy'] for res in result] for result in results_train]
-    bp() 
+
     auroc_last = np.mean([auroc[-1] for auroc in all_auroc_test])
     auprc_last = np.mean([auprc[-1] for auprc in all_auprc_test])
     acc_last = np.mean([acc[-1] for acc in all_acc_test])
@@ -183,21 +189,44 @@ def calculate_final_results(results):
     acc_last = np.mean([acc[-1] for acc in all_acc_train])
     print(f'Last Train AUROC: {auroc_last:.4f}, Last Train AUPRC: {auprc_last:.4f}, Last Train Accuracy: {acc_last:.4f}')
     
-    auroc_best = np.mean([np.max(auroc) for auroc in all_auroc_test])
-    auprc_best = np.mean([np.max(auprc) for auprc in all_auprc_test])
-    acc_best = np.mean([np.max(acc) for acc in all_acc_test])
-    print(f'Best Test AUROC: {auroc_best:.4f}, Best Test AUPRC: {auprc_best:.4f}, Best Test Accuracy: {acc_best:.4f}')
-    auroc_best = np.mean([np.max(auroc) for auroc in all_auroc_val])
-    auprc_best = np.mean([np.max(auprc) for auprc in all_auprc_val])
-    acc_best = np.mean([np.max(acc) for acc in all_acc_val])
-    print(f'Best Val AUROC: {auroc_best:.4f}, Best Val AUPRC: {auprc_best:.4f}, Best Val Accuracy: {acc_best:.4f}')
-    auroc_best = np.mean([np.max(auroc) for auroc in all_auroc_train])
-    auprc_best = np.mean([np.max(auprc) for auprc in all_auprc_train])
-    acc_best = np.mean([np.max(acc) for acc in all_acc_train])
-    print(f'Best Train AUROC: {auroc_best:.4f}, Best Train AUPRC: {auprc_best:.4f}, Best Train Accuracy: {acc_best:.4f}')
-    bp() 
+    auroc_best_test = np.mean([np.max(auroc) for auroc in all_auroc_test])
+    auprc_best_test = np.mean([np.max(auprc) for auprc in all_auprc_test])
+    acc_best_test = np.mean([np.max(acc) for acc in all_acc_test])
+    print(f'Best Test AUROC: {auroc_best_test:.4f}, Best Test AUPRC: {auprc_best_test:.4f}, Best Test Accuracy: {acc_best_test:.4f}')
+    auroc_best_val = np.mean([np.max(auroc) for auroc in all_auroc_val])
+    auprc_best_val = np.mean([np.max(auprc) for auprc in all_auprc_val])
+    acc_best_val = np.mean([np.max(acc) for acc in all_acc_val])
+    print(f'Best Val AUROC: {auroc_best_val:.4f}, Best Val AUPRC: {auprc_best_val:.4f}, Best Val Accuracy: {acc_best_val:.4f}')
+    auroc_best_train = np.mean([np.max(auroc) for auroc in all_auroc_train])
+    auprc_best_train = np.mean([np.max(auprc) for auprc in all_auprc_train])
+    acc_best_train = np.mean([np.max(acc) for acc in all_acc_train])
+    print(f'Best Train AUROC: {auroc_best_train:.4f}, Best Train AUPRC: {auprc_best_train:.4f}, Best Train Accuracy: {acc_best_train:.4f}')
+    final_metrics = { 
+                     "best/test/auroc": auroc_best_test,
+                     "best/test/auprc": auprc_best_test,
+                     "best/test/accuracy": acc_best_test,
+                     "best/val/auroc": auroc_best_val,
+                     "best/val/auprc": auprc_best_val,
+                     "best/val/accuracy": acc_best_val,
+                     "best/train/auroc": auroc_best_train,
+                     "best/train/auprc": auprc_best_train,
+                     "best/train/accuracy": acc_best_train}
+    return final_metrics, exp_name
 
 if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
-    results = main_parallel()
-    calculate_final_results(results)
+    results, base_args = main_parallel()
+    final_metrics, exp_name = calculate_final_results(results)
+    bp() 
+    hp = {
+        'lr': base_args['lr'],
+        'batch_size': base_args['batch_size'],
+        'bandwidth': base_args['bandwidth'],
+        'source': 'timeseries' if (not base_args['load_spec_true'] and not base_args['load_spec_recon']) else 'true_spec' if base_args['load_spec_true'] else 'recon_spec' if base_args['load_spec_recon'] else ''
+        'window_length': base_args['window_length'],
+        'model_type': base_args['model_type'],
+        'dataset': base_args['dataset'],
+    }
+    writer = SummaryWriter(log_dir=exp_name)
+    writer.file_writer.add_summary(hparams(hp, final_metrics))
+    writer.flush()
