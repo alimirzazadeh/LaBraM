@@ -242,6 +242,9 @@ def main(args):
     loss_fn = nn.CrossEntropyLoss()
     metrics = MulticlassMetrics(num_classes=num_classes, device=device)
 
+    all_train_results = []
+    all_val_results = []
+    all_test_results = []
     for epoch in tqdm(range(epochs)):
         val_loss, val_results = validate_epoch(model, val_loader, loss_fn, device, metrics)
         logger(writer, val_results, 'val', epoch)
@@ -255,11 +258,14 @@ def main(args):
         # scheduler.step()
         print(f"Epoch {epoch+1}/{epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
-    ## turn all to numpy and return 
-    train_results = {k: v.cpu().numpy() if isinstance(v, torch.Tensor) else v for k, v in train_results.items()}
-    val_results = {k: v.cpu().numpy() if isinstance(v, torch.Tensor) else v for k, v in val_results.items()}
-    test_results = {k: v.cpu().numpy() if isinstance(v, torch.Tensor) else v for k, v in test_results.items()}
-    return train_results, val_results, test_results
+        ## turn all to numpy and return 
+        train_results = {k: v.cpu().numpy() if isinstance(v, torch.Tensor) else v for k, v in train_results.items()}
+        val_results = {k: v.cpu().numpy() if isinstance(v, torch.Tensor) else v for k, v in val_results.items()}
+        test_results = {k: v.cpu().numpy() if isinstance(v, torch.Tensor) else v for k, v in test_results.items()}
+        all_train_results.append(train_results)
+        all_val_results.append(val_results)
+        all_test_results.append(test_results)
+    return all_train_results, all_val_results, all_test_results
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 

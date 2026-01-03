@@ -10,7 +10,8 @@ import argparse
 import sys
 import os
 from types import SimpleNamespace
-
+import numpy as np
+from ipdb import set_trace as bp
 # Import your training function
 from train_cnn import main
 
@@ -153,28 +154,48 @@ def main_parallel():
     return results
 
 def calculate_final_results(results):
-    from ipdb import set_trace as bp
-    import numpy as np
-    bp() 
+    bp()
     print('Based on Final Epoch: ')
     results_test = [item['result'][2] for item in results]
     results_val = [item['result'][1] for item in results]
     results_train = [item['result'][0] for item in results]
-    auroc_last = np.mean([result['auroc'] for result in results_test])
-    auprc_last = np.mean([result['auprc'] for result in results_test])
-    acc_last = np.mean([result['balanced_accuracy'] for result in results_test])
-    print(f'Test AUROC: {auroc_last:.4f}, Test AUPRC: {auprc_last:.4f}, Test Accuracy: {acc_last:.4f}')
+    all_auroc_test = [[res['auroc'] for res in result] for result in results_test]
+    all_auprc_test = [[res['auprc'] for res in result] for result in results_test]
+    all_acc_test = [[res['balanced_accuracy'] for res in result] for result in results_test]
     
-    auroc_last = np.mean([result['auroc'] for result in results_val])
-    auprc_last = np.mean([result['auprc'] for result in results_val])
-    acc_last = np.mean([result['balanced_accuracy'] for result in results_val])
-    print(f'Val AUROC: {auroc_last:.4f}, Val AUPRC: {auprc_last:.4f}, Val Accuracy: {acc_last:.4f}')
+    all_auroc_val = [[res['auroc'] for res in result] for result in results_val]
+    all_auprc_val = [[res['auprc'] for res in result] for result in results_val]
+    all_acc_val = [[res['balanced_accuracy'] for res in result] for result in results_val]
+    all_auroc_train = [[res['auroc'] for res in result] for result in results_train]
+    all_auprc_train = [[res['auprc'] for res in result] for result in results_train]
+    all_acc_train = [[res['balanced_accuracy'] for res in result] for result in results_train]
+    bp() 
+    auroc_last = np.mean([auroc[-1] for auroc in all_auroc_test])
+    auprc_last = np.mean([auprc[-1] for auprc in all_auprc_test])
+    acc_last = np.mean([acc[-1] for acc in all_acc_test])
+    print(f'Last Test AUROC: {auroc_last:.4f}, Last Test AUPRC: {auprc_last:.4f}, Last Test Accuracy: {acc_last:.4f}')
+    auroc_last = np.mean([auroc[-1] for auroc in all_auroc_val])
+    auprc_last = np.mean([auprc[-1] for auprc in all_auprc_val])
+    acc_last = np.mean([acc[-1] for acc in all_acc_val])
+    print(f'Last Val AUROC: {auroc_last:.4f}, Last Val AUPRC: {auprc_last:.4f}, Last Val Accuracy: {acc_last:.4f}')
+    auroc_last = np.mean([auroc[-1] for auroc in all_auroc_train])
+    auprc_last = np.mean([auprc[-1] for auprc in all_auprc_train])
+    acc_last = np.mean([acc[-1] for acc in all_acc_train])
+    print(f'Last Train AUROC: {auroc_last:.4f}, Last Train AUPRC: {auprc_last:.4f}, Last Train Accuracy: {acc_last:.4f}')
     
-    auroc_last = np.mean([result['auroc'] for result in results_train])
-    auprc_last = np.mean([result['auprc'] for result in results_train])
-    acc_last = np.mean([result['balanced_accuracy'] for result in results_train])
-    print(f'Train AUROC: {auroc_last:.4f}, Train AUPRC: {auprc_last:.4f}, Train Accuracy: {acc_last:.4f}')
-    
+    auroc_best = np.mean([np.max(auroc) for auroc in all_auroc_test])
+    auprc_best = np.mean([np.max(auprc) for auprc in all_auprc_test])
+    acc_best = np.mean([np.max(acc) for acc in all_acc_test])
+    print(f'Best Test AUROC: {auroc_best:.4f}, Best Test AUPRC: {auprc_best:.4f}, Best Test Accuracy: {acc_best:.4f}')
+    auroc_best = np.mean([np.max(auroc) for auroc in all_auroc_val])
+    auprc_best = np.mean([np.max(auprc) for auprc in all_auprc_val])
+    acc_best = np.mean([np.max(acc) for acc in all_acc_val])
+    print(f'Best Val AUROC: {auroc_best:.4f}, Best Val AUPRC: {auprc_best:.4f}, Best Val Accuracy: {acc_best:.4f}')
+    auroc_best = np.mean([np.max(auroc) for auroc in all_auroc_train])
+    auprc_best = np.mean([np.max(auprc) for auprc in all_auprc_train])
+    acc_best = np.mean([np.max(acc) for acc in all_acc_train])
+    print(f'Best Train AUROC: {auroc_best:.4f}, Best Train AUPRC: {auprc_best:.4f}, Best Train Accuracy: {acc_best:.4f}')
+    bp() 
 
 if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
