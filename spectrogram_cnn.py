@@ -961,7 +961,7 @@ class MultitaperSpectrogramTransform:
                 counter = 0
             # print('Shape of data: ', data.shape)
             # print(f'Paddying left and right by {counter / self.fs:.2f}s')
-            print('T before padding: ', x.shape[1])
+            # print('T before padding: ', x.shape[1])
             x = torch.nn.functional.pad(x, (counter, counter), mode="reflect")
         
         
@@ -973,11 +973,11 @@ class MultitaperSpectrogramTransform:
             x_padded = torch.nn.functional.pad(x, (0, self.win_length - T), mode='constant', value=0)
             n_segments = 1
         else:
-            print('T: ', T)
-            print('win_length: ', self.win_length)
-            print('hop_length: ', self.hop_length)
+            # print('T: ', T)
+            # print('win_length: ', self.win_length)
+            # print('hop_length: ', self.hop_length)
             n_segments = (T - self.win_length) // self.hop_length + 1
-            print('n_segments: ', n_segments)
+            # print('n_segments: ', n_segments)
             x_padded = None  # Not needed
         
         device = x.device
