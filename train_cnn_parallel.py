@@ -79,6 +79,9 @@ def main_parallel():
     parser.add_argument('--load_spec_true', default=False, action='store_true')
     parser.add_argument('--load_spec_recon', default=False, action='store_true')
     parser.add_argument('--lr_warmup_prop', type=float, default=0.2)
+    parser.add_argument('--normalize_spec', default=False, action='store_true')
+    parser.add_argument('--percentile_low', type=float, default=-20)
+    parser.add_argument('--percentile_high', type=float, default=30)
     
     # Parallel execution arguments
     parser.add_argument('--seeds', type=int, nargs='+', default=[1, 2, 3, 4, 5, 6, 7, 8],
@@ -103,7 +106,10 @@ def main_parallel():
         'multitaper': args.multitaper,
         'load_spec_true': args.load_spec_true,
         'load_spec_recon': args.load_spec_recon,
-        'lr_warmup_prop': args.lr_warmup_prop
+        'lr_warmup_prop': args.lr_warmup_prop,
+        'normalize_spec': args.normalize_spec,
+        'percentile_low': args.percentile_low,
+        'percentile_high': args.percentile_high,
     }
     seeds = args.seeds
     num_gpus = args.num_gpus
@@ -240,6 +246,9 @@ if __name__ == "__main__":
         'dataset': base_args['dataset'],
         'total_time': np.round(total_time / 3600, 2),
         'num_workers': base_args['num_workers'],
+        'normalize_spec': base_args['normalize_spec'],
+        'percentile_low': base_args['percentile_low'],
+        'percentile_high': base_args['percentile_high'],
     }
     # Create writer
     writer = SummaryWriter(log_dir=exp_name)

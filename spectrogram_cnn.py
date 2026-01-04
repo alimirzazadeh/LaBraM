@@ -827,6 +827,24 @@ class WelchSpectrogramTransform:
     def __repr__(self):
         return f"{self.__class__.__name__}(fs={self.fs}, resolution={self.resolution}, min_freq={self.min_freq}, max_freq={self.max_freq})"
 
+class PercentileNormalize:
+    def __init__(self, low_value=0, high_value=20):
+        self.low_value = low_value
+        self.high_value = high_value
+    
+    def __call__(self, data):
+        """
+        Normalize data to [-1, 1] using percentile-based scaling.
+        
+        Formula: (data - p_low) / (p_high - p_low) * 2 - 1
+        This maps [p_low, p_high] to [-1, 1]
+        """
+        # Avoid division by zero
+        range_val = self.high_value - self.low_value
+        range_val = max(range_val, 1e-8)
+        normalized = (data - self.low_value) / range_val * 2.0 - 1.0
+        normalized = torch.clamp(normalized, min=-1.0, max=1.0)
+        return normalized
 
 class MultitaperSpectrogramTransform:
     def __init__(
@@ -1180,6 +1198,9 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         self.min_freq = 0
         self.max_freq = 32
         self.fs=200
+        self.normalize_spec = args.normalize_spec
+        self.percentile_low = args.percentile_low
+        self.percentile_high = args.percentile_high
         if multitaper:
             self.spec_transform = MultitaperSpectrogramTransform(
                 fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
@@ -1188,6 +1209,11 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
             self.spec_transform = SpectrogramTransform(
                     fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
                     pad=self.fs * self.window_length // 2, min_freq=self.min_freq, max_freq=self.max_freq)
+        
+        if self.args.normalize_spec:
+            self.spec_transform = [self.spec_transform]
+            self.spec_transform.append(PercentileNormalize(low_value=self.percentile_low, high_value=self.percentile_high))
+            self.spec_transform = transforms.Compose(self.spec_transform)
     def __len__(self):
         return len(self.files)
     def __getitem__(self, index):
