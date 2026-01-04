@@ -1866,15 +1866,25 @@ if __name__ == "__main__":
     #     {'window_length': 3, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0},
     #     {'window_length': 1, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
     # ]
-    
+    all_mins = [] 
+    all_maxs = [] 
     for test_case in test_cases:
         trainset = TUABBaselineDataset( **test_case)
         print(trainset[0])
-        bp() 
+        
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
         aa = next(iter(trainloader))
         print(test_case)
         print('Shape of aa: ', aa[0].shape)
+        for item in tqdm(trainloader):
+            all_mins.append(item[0].detach().cpu().numpy().min())
+            all_maxs.append(item[0].detach().cpu().numpy().max())
+    print('Mean min: ', np.mean(all_mins))
+    print('Mean max: ', np.mean(all_maxs))
+    print('Std min: ', np.std(all_mins))
+    print('Std max: ', np.std(all_maxs))
+    bp() 
+    print('done')
     
     ##
     # model = SpectrogramCNN(model='conv1d', num_classes=6)
