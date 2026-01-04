@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import scipy.stats
-
+from ipdb import set_trace as bp
 def remove_nan_inf(x):
     nan_mask = np.isnan(x)
     inf_mask = np.isinf(x)
@@ -20,7 +20,7 @@ def calculate_reconstruction_l2(spec_true, spec_recon):
     spec_true = remove_nan_inf(spec_true)
     spec_recon = spec_recon.reshape(-1)
     spec_recon = remove_nan_inf(spec_recon)
-    return np.linalg.norm(spec_true - spec_recon)
+    return np.linalg.norm(spec_true - spec_true)
 def calculate_reconstruction_pearson(spec_true, spec_recon):
     spec_true = spec_true.reshape(-1)
     spec_true = remove_nan_inf(spec_true)
@@ -52,10 +52,10 @@ for file in tqdm(files):
             recon_pearson = calculate_reconstruction_pearson(data['spec_true'], data['spec_recon'])
             all_patients_abnormal[patient_id].append([recon_l2, recon_pearson])
 
-l2_normal = [np.mean([item[0] for item in all_patients_normal[patient]]) for patient in all_patients_normal]
-l2_abnormal = [np.mean([item[0] for item in all_patients_abnormal[patient]]) for patient in all_patients_abnormal]
-pearson_normal = [np.mean([item[1] for item in all_patients_normal[patient]]) for patient in all_patients_normal]
-pearson_abnormal = [np.mean([item[1] for item in all_patients_abnormal[patient]]) for patient in all_patients_abnormal]
+l2_normal = [np.nanmean([item[0] for item in all_patients_normal[patient]]) for patient in all_patients_normal]
+l2_abnormal = [np.nanmean([item[0] for item in all_patients_abnormal[patient]]) for patient in all_patients_abnormal]
+pearson_normal = [np.nanmean([item[1] for item in all_patients_normal[patient]]) for patient in all_patients_normal]
+pearson_abnormal = [np.nanmean([item[1] for item in all_patients_abnormal[patient]]) for patient in all_patients_abnormal]
 print('--------------------------------')
 print('Mean L2 Normal: ', np.mean(l2_normal))
 print('Mean L2 Abnormal: ', np.mean(l2_abnormal))
@@ -70,3 +70,6 @@ print('Std L2 Abnormal: ', np.std(l2_abnormal))
 print('Std Pearson Normal: ', np.std(pearson_normal))
 print('Std Pearson Abnormal: ', np.std(pearson_abnormal))
 print('--------------------------------')
+
+bp() 
+print('done')
