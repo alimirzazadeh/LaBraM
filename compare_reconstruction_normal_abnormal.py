@@ -20,7 +20,7 @@ def calculate_reconstruction_l2(spec_true, spec_recon):
     spec_true = remove_nan_inf(spec_true)
     spec_recon = spec_recon.reshape(-1)
     spec_recon = remove_nan_inf(spec_recon)
-    return np.linalg.norm(spec_true - spec_true)
+    return np.linalg.norm(spec_recon - spec_true)
 def calculate_reconstruction_pearson(spec_true, spec_recon):
     spec_true = spec_true.reshape(-1)
     spec_true = remove_nan_inf(spec_true)
