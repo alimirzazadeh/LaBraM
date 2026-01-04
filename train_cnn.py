@@ -204,8 +204,9 @@ def main(args):
     num_classes = args.num_classes
     window_length = args.window_length
     resolution = args.resolution
-    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}_window_{window_length}_resolution_{resolution}_resolutionfactor_{args.resolution_factor}_stride_{args.stride_length}_bw_{args.bandwidth}_{'multitaper' if args.multitaper else 'stft'}_{'load_spec_true' if args.load_spec_true else 'load_spec_recon' if args.load_spec_recon else ''}_{str(args.lr_warmup_prop) + '_warmup'}_{args.seed}'
+    exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}_window_{window_length}_resolution_{resolution}_resolutionfactor_{args.resolution_factor}_stride_{args.stride_length}_bw_{args.bandwidth}_{'multitaper' if args.multitaper else 'stft'}_{'load_spec_true' if args.load_spec_true else 'load_spec_recon' if args.load_spec_recon else ''}_{str(args.lr_warmup_prop) + '_warmup'}'
     exp_name = exp_name + f'normalize_{args.percentile_low}-{args.percentile_high}' if args.normalize_spec else ''
+    exp_name = exp_name + f'_{args.seed}'
     print(exp_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(log_dir=f'/data/scratch/alimirz/2025/EEG_FM/{args.dataset}_V2/{exp_name}')
