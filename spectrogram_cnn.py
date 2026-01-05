@@ -1915,7 +1915,7 @@ if __name__ == "__main__":
         trainset = TUABBaselineDataset( **test_case)
         print(trainset[0])
         
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=0)
         aa = next(iter(trainloader))
         print(test_case)
         print('Shape of aa: ', aa[0].shape)
