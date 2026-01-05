@@ -845,7 +845,7 @@ class PercentileNormalize:
         range_val = max(range_val, 1e-8)
         normalized = (data - self.low_value) / range_val * 2.0 - 1.0
         normalized_after = torch.clamp(normalized, min=-1.0, max=1.0)
-        print('changed percent values: ', (normalized_after != normalized).mean())
+        print('changed percent values: ', (normalized_after != normalized).numpy().float().mean())
         return normalized_after
 
 class MultitaperSpectrogramTransform:
