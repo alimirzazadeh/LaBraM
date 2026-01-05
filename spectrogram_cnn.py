@@ -21,6 +21,7 @@ from scipy.fft import rfftfreq, rfft
 from scipy.signal.windows import dpss as sp_dpss
 import matplotlib.pyplot as plt
 
+all_percent_changed = []
 
 """ 
 To do: reorder the channels to make sense for the conv2d model 
@@ -845,7 +846,9 @@ class PercentileNormalize:
         range_val = max(range_val, 1e-8)
         normalized = (data - self.low_value) / range_val * 2.0 - 1.0
         normalized_after = torch.clamp(normalized, min=-1.0, max=1.0)
-        print('changed percent values: ', (normalized_after != normalized).float().numpy().mean())
+        percent_changed = (normalized_after != normalized).float().numpy().mean()
+        all_percent_changed.append(percent_changed)
+        # print('changed percent values: ', percent_changed)
         return normalized_after
 
 class MultitaperSpectrogramTransform:
@@ -1908,7 +1911,6 @@ if __name__ == "__main__":
     for test_case in test_cases:
         trainset = TUABBaselineDataset( **test_case)
         print(trainset[0])
-        bp() 
         
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
         aa = next(iter(trainloader))
@@ -1921,7 +1923,11 @@ if __name__ == "__main__":
     print('Mean max: ', np.mean(all_maxs))
     print('Std min: ', np.std(all_mins))
     print('Std max: ', np.std(all_maxs))
-    
+    print('\n\n')
+    print('Mean percent changed: ', np.mean(all_percent_changed))
+    print('Std percent changed: ', np.std(all_percent_changed))
+    print('Max percent changed: ', np.max(all_percent_changed))
+    print('90 percentile percent changed: ', np.percentile(all_percent_changed, 90))
     ## the most correlated need to remove 0,1,9,10,11 channels 
     # if True: ## check Padding may cause a shift in the correct index , may be important for TUEV (not true). 
     #     peng = comparison_dataset[0][0].detach().cpu().numpy()
@@ -1952,7 +1958,7 @@ if __name__ == "__main__":
     #     print('Across shape: ', corr.shape[1], max_corr)
     #     print('lowest 4 channels are: ', np.argsort(max_corr)[:4], 'with values: ', max_corr[np.argsort(max_corr)[:4]])
     bp() 
-    bp() 
+
     print('done')
     
     ##
