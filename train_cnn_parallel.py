@@ -254,6 +254,7 @@ if __name__ == "__main__":
         'percentile_high': base_args['percentile_high'],
         'logv2': True,
         'drop_extra_channels': base_args['drop_extra_channels'],
+        'timestamp': time.strftime("%Y%m%d_%H%M%S"),
     }
     # Create writer
     writer = SummaryWriter(log_dir=exp_name)
