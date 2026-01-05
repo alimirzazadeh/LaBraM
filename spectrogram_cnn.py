@@ -1923,15 +1923,18 @@ if __name__ == "__main__":
         for item in tqdm(trainloader):
             all_mins.append(item[0].detach().cpu().numpy().min())
             all_maxs.append(item[0].detach().cpu().numpy().max())
+        print('Batch', len(all_percent_changed))
+        print('Mean percent changed: ', np.mean(all_percent_changed))
+        print('Std percent changed: ', np.std(all_percent_changed))
+        print('Max percent changed: ', np.max(all_percent_changed))
+        print('90 percentile percent changed: ', np.percentile(all_percent_changed, 90))
+    
     print('Mean min: ', np.mean(all_mins))
     print('Mean max: ', np.mean(all_maxs))
     print('Std min: ', np.std(all_mins))
     print('Std max: ', np.std(all_maxs))
     print('\n\n')
-    print('Mean percent changed: ', np.mean(all_percent_changed))
-    print('Std percent changed: ', np.std(all_percent_changed))
-    print('Max percent changed: ', np.max(all_percent_changed))
-    print('90 percentile percent changed: ', np.percentile(all_percent_changed, 90))
+
     ## the most correlated need to remove 0,1,9,10,11 channels 
     # if True: ## check Padding may cause a shift in the correct index , may be important for TUEV (not true). 
     #     peng = comparison_dataset[0][0].detach().cpu().numpy()
