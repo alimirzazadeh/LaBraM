@@ -1894,10 +1894,13 @@ if __name__ == "__main__":
     #     {'window_length': 1, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
     # ]
     all_mins = [] 
-    all_maxs = [] 
+    all_maxs = []
+    comparison_dataset = TUABBaselineDataset(args, mode='train', window_length=4, resolution=0.2, stride_length=1, multitaper=True, load_spec_true=True)
+    
     for test_case in test_cases:
         trainset = TUABBaselineDataset( **test_case)
         print(trainset[0])
+        bp() 
         
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=4)
         aa = next(iter(trainloader))
