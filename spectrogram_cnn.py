@@ -840,11 +840,13 @@ class PercentileNormalize:
         This maps [p_low, p_high] to [-1, 1]
         """
         # Avoid division by zero
+        
         range_val = self.high_value - self.low_value
         range_val = max(range_val, 1e-8)
         normalized = (data - self.low_value) / range_val * 2.0 - 1.0
-        normalized = torch.clamp(normalized, min=-1.0, max=1.0)
-        return normalized
+        normalized_after = torch.clamp(normalized, min=-1.0, max=1.0)
+        print('changed percent values: ', (normalized_after != normalized).mean())
+        return normalized_after
 
 class MultitaperSpectrogramTransform:
     def __init__(
@@ -1923,6 +1925,11 @@ if __name__ == "__main__":
     if True:
         peng = comparison_dataset[0][0].detach().cpu().numpy()
         ali = trainset[0][0].detach().cpu().numpy()
+        ali = ali[:,:,:-1]
+        peng = peng.reshape(peng.shape[0], -1)
+        ali = ali.reshape(ali.shape[0], -1)
+        corr = np.dot(peng, ali.T) / (np.linalg.norm(peng, axis=1, keepdims=True) * np.linalg.norm(ali, axis=1, keepdims=True).T)
+        bp() 
     bp() 
     print('done')
     
