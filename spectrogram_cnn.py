@@ -1230,6 +1230,9 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
             X = torch.from_numpy(sample["spec_recon"]).float()
         else:
             X = sample["X"]
+            if self.args.drop_extra_channels:
+                # drop rows 16, 17 21, 22
+                X = X[[i for i in range(X.shape[0]) if i not in [16, 17, 21, 22]], :]
             X = torch.from_numpy(X).float()
             X = self.spec_transform(X.T)
             # X2 = self.spec_transform(torch.from_numpy(sample["X"]).float().T)

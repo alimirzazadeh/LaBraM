@@ -82,6 +82,7 @@ def main_parallel():
     parser.add_argument('--normalize_spec', default=False, action='store_true')
     parser.add_argument('--percentile_low', type=float, default=-20)
     parser.add_argument('--percentile_high', type=float, default=30)
+    parser.add_argument('--drop_extra_channels', default=False, action='store_true')
     
     # Parallel execution arguments
     parser.add_argument('--seeds', type=int, nargs='+', default=[1, 2, 3, 4, 5, 6, 7, 8],
@@ -110,6 +111,7 @@ def main_parallel():
         'normalize_spec': args.normalize_spec,
         'percentile_low': args.percentile_low,
         'percentile_high': args.percentile_high,
+        'drop_extra_channels': args.drop_extra_channels,
     }
     seeds = args.seeds
     num_gpus = args.num_gpus
@@ -250,6 +252,7 @@ if __name__ == "__main__":
         'percentile_low': base_args['percentile_low'],
         'percentile_high': base_args['percentile_high'],
         'logv2': True,
+        'drop_extra_channels': base_args['drop_extra_channels'],
     }
     # Create writer
     writer = SummaryWriter(log_dir=exp_name)
