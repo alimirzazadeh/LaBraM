@@ -1876,7 +1876,7 @@ if __name__ == "__main__":
     args = Object()
     args.load_spec_true = False
     args.load_spec_recon = False
-    args.normalize_spec = False
+    args.normalize_spec = True
     args.percentile_low = -20
     args.percentile_high = 30
     test_cases = [
