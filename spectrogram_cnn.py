@@ -845,7 +845,7 @@ class PercentileNormalize:
         range_val = max(range_val, 1e-8)
         normalized = (data - self.low_value) / range_val * 2.0 - 1.0
         normalized_after = torch.clamp(normalized, min=-1.0, max=1.0)
-        print('changed percent values: ', (normalized_after != normalized).numpy().float().mean())
+        print('changed percent values: ', (normalized_after != normalized).float().numpy().mean())
         return normalized_after
 
 class MultitaperSpectrogramTransform:
@@ -984,7 +984,6 @@ class MultitaperSpectrogramTransform:
             # print('T before padding: ', x.shape[1])
             x = torch.nn.functional.pad(x, (counter, counter), mode="reflect")
         
-        bp() 
         C, T = x.shape
         
         # Calculate number of segments based on hop_length
