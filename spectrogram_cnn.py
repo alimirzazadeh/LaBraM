@@ -1886,6 +1886,7 @@ if __name__ == "__main__":
     args.normalize_spec = True
     args.percentile_low = -20
     args.percentile_high = 30
+    args.drop_extra_channels = False
     test_cases = [
         {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0},
         # {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},

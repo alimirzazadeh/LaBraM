@@ -206,6 +206,7 @@ def main(args):
     resolution = args.resolution
     exp_name = f'{model_type}_{num_classes}_classes_lr_{lr}_bs_{batch_size}_epochs_{epochs}_cosine_annealing_{args.dataset}_window_{window_length}_resolution_{resolution}_resolutionfactor_{args.resolution_factor}_stride_{args.stride_length}_bw_{args.bandwidth}_{'multitaper' if args.multitaper else 'stft'}_{'load_spec_true' if args.load_spec_true else 'load_spec_recon' if args.load_spec_recon else ''}_{str(args.lr_warmup_prop) + '_warmup'}'
     exp_name = exp_name + f'logv2_normalize_{args.percentile_low}-{args.percentile_high}' if args.normalize_spec else ''
+    exp_name = exp_name + args.custom_name if args.custom_name else ''
     exp_name = exp_name + f'_{args.seed}'
     print(exp_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -226,10 +227,10 @@ def main(args):
     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, persistent_workers=True)
     num_channels = 19 if args.load_spec_true or args.load_spec_recon or args.drop_extra_channels else 23
     if args.dataset == 'TUAB':
-        if args.load_spec_true or args.load_spec_recon:
-            data_length = 8 
-        else:
-            data_length = 10
+        # if args.load_spec_true or args.load_spec_recon:
+        #     data_length = 8 
+        # else:
+        data_length = 10
     elif args.dataset == 'TUEV':
         data_length = 5
     else:
@@ -286,6 +287,11 @@ if __name__ == "__main__":
     parser.add_argument('--load_spec_true', type=bool, default=False)
     parser.add_argument('--load_spec_recon', type=bool, default=False)
     parser.add_argument('--lr_warmup_prop', type=float, default=0.2)
+    parser.add_argument('--normalize_spec', type=bool, default=False)
+    parser.add_argument('--percentile_low', type=float, default=-20)
+    parser.add_argument('--percentile_high', type=float, default=30)
+    parser.add_argument('--drop_extra_channels', type=bool, default=False)
+    parser.add_argument('--custom_name', type=str, default='')
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
     torch.manual_seed(args.seed)
