@@ -1898,7 +1898,8 @@ if __name__ == "__main__":
     # ]
     all_mins = [] 
     all_maxs = []
-    comparison_args = args.copy()
+    import copy
+    comparison_args = copy.deepcopy(args)
     comparison_args.load_spec_true = True
     comparison_args.normalize_spec = False
     comparison_dataset = TUABBaselineDataset(comparison_args, mode='train', window_length=4, resolution=0.2, stride_length=1, multitaper=True)
