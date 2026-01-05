@@ -1075,7 +1075,8 @@ class MultitaperSpectrogramTransform:
                 psd = psd * self._norm_factor
             
             # Log-power
-            psd = torch.log(psd + 1.0)  # (C, n_freqs_masked)
+            # psd = torch.log(psd + 1.0)  # (C, n_freqs_masked)
+            psd = 10.0 * torch.log10(psd + 1e-10) 
             
             segment_specs.append(psd)  # (C, n_freqs_masked)
         
