@@ -249,6 +249,7 @@ if __name__ == "__main__":
         'normalize_spec': base_args['normalize_spec'],
         'percentile_low': base_args['percentile_low'],
         'percentile_high': base_args['percentile_high'],
+        'logv2': True,
     }
     # Create writer
     writer = SummaryWriter(log_dir=exp_name)
