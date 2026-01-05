@@ -1880,7 +1880,7 @@ if __name__ == "__main__":
     args.percentile_low = -20
     args.percentile_high = 30
     test_cases = [
-        {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0, 'normalize_spec': False, 'percentile_low': -20, 'percentile_high': 30},
+        {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0},
         # {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
     ]
     #     {'window_length': 5, 'resolution': 0.2, 'stride_length': 1, 'multitaper': False, 'bandwidth': -1},
