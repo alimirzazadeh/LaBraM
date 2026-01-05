@@ -1876,6 +1876,9 @@ if __name__ == "__main__":
     args = Object()
     args.load_spec_true = False
     args.load_spec_recon = False
+    args.normalize_spec = False
+    args.percentile_low = -20
+    args.percentile_high = 30
     test_cases = [
         {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0, 'normalize_spec': False, 'percentile_low': -20, 'percentile_high': 30},
         # {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
@@ -1895,7 +1898,10 @@ if __name__ == "__main__":
     # ]
     all_mins = [] 
     all_maxs = []
-    comparison_dataset = TUABBaselineDataset(args, mode='train', window_length=4, resolution=0.2, stride_length=1, multitaper=True, load_spec_true=True)
+    comparison_args = args.copy()
+    comparison_args.load_spec_true = True
+    comparison_args.normalize_spec = False
+    comparison_dataset = TUABBaselineDataset(comparison_args, mode='train', window_length=4, resolution=0.2, stride_length=1, multitaper=True)
     
     for test_case in test_cases:
         trainset = TUABBaselineDataset( **test_case)
