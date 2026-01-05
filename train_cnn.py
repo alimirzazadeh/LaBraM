@@ -224,7 +224,7 @@ def main(args):
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, persistent_workers=True)
     val_loader = DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, persistent_workers=True)
     test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, persistent_workers=True)
-    num_channels = 19 if args.load_spec_true or args.load_spec_recon else 23
+    num_channels = 19 if args.load_spec_true or args.load_spec_recon or args.drop_extra_channels else 23
     if args.dataset == 'TUAB':
         if args.load_spec_true or args.load_spec_recon:
             data_length = 8 

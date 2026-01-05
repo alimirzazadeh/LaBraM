@@ -1921,14 +1921,37 @@ if __name__ == "__main__":
     print('Mean max: ', np.mean(all_maxs))
     print('Std min: ', np.std(all_mins))
     print('Std max: ', np.std(all_maxs))
-    if True:
-        peng = comparison_dataset[0][0].detach().cpu().numpy()
-        ali = trainset[0][0].detach().cpu().numpy()
-        ali = ali[:,:,:-1]
-        peng = peng.reshape(peng.shape[0], -1)
-        ali = ali.reshape(ali.shape[0], -1)
-        corr = np.dot(peng, ali.T) / (np.linalg.norm(peng, axis=1, keepdims=True) * np.linalg.norm(ali, axis=1, keepdims=True).T)
-        bp() 
+    
+    ## the most correlated need to remove 0,1,9,10,11 channels 
+    # if True: ## check Padding may cause a shift in the correct index , may be important for TUEV (not true). 
+    #     peng = comparison_dataset[0][0].detach().cpu().numpy()
+    #     index = 8
+    #     ali = trainset[0][0].detach().cpu().numpy()
+    #     peng_sample = peng[5,:,index]
+    #     max_corr = 0
+    #     max_corr_index = (0,0)
+    #     for i in range(peng.shape[0]):
+    #         for j in range(max(0, index - 4), min(ali.shape[2], index + 4)):
+    #             ali_sample = ali[i,:,j]
+    #             corr = np.dot(peng_sample, ali_sample) / (np.linalg.norm(peng_sample) * np.linalg.norm(ali_sample))
+    #             if corr > max_corr:
+    #                 max_corr = corr
+    #                 max_corr_index = (i,j)
+    #     print(f'Max correlation: {max_corr} between channel {max_corr_index[0]} and index {max_corr_index[1]}')
+    
+    ## can confirm there is 0.994-0.999 correlation between all channels, so the only difference is the 2 dropped channels. 
+    # if True: ## checks the lowest channel correlations, confirms that A1, A2, T1, T2 are the lowest 4 channels because they are missing 
+    #     idx = 2
+    #     peng = comparison_dataset[idx][0].detach().cpu().numpy()
+    #     ali = trainset[idx][0].detach().cpu().numpy()
+    #     ali = ali[:,:,2:9]
+    #     peng = peng[:,:,2:9].reshape(peng.shape[0], -1)
+    #     ali = ali.reshape(ali.shape[0], -1)
+    #     corr = np.dot(peng, ali.T) / (np.linalg.norm(peng, axis=1, keepdims=True) * np.linalg.norm(ali, axis=1, keepdims=True).T)
+    #     max_corr = np.max(corr,0)
+    #     print('Across shape: ', corr.shape[1], max_corr)
+    #     print('lowest 4 channels are: ', np.argsort(max_corr)[:4], 'with values: ', max_corr[np.argsort(max_corr)[:4]])
+    bp() 
     bp() 
     print('done')
     
