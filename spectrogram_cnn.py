@@ -4,7 +4,7 @@ import h5py
 import os 
 from tqdm import tqdm
 import random
-from pdb import set_trace as bp
+from ipdb import set_trace as bp
 from torchaudio.transforms import Spectrogram
 import torchaudio
 import torchvision.transforms as transforms
@@ -982,7 +982,7 @@ class MultitaperSpectrogramTransform:
             # print('T before padding: ', x.shape[1])
             x = torch.nn.functional.pad(x, (counter, counter), mode="reflect")
         
-        
+        bp() 
         C, T = x.shape
         
         # Calculate number of segments based on hop_length
@@ -1920,6 +1920,9 @@ if __name__ == "__main__":
     print('Mean max: ', np.mean(all_maxs))
     print('Std min: ', np.std(all_mins))
     print('Std max: ', np.std(all_maxs))
+    if True:
+        peng = comparison_dataset[0][0].detach().cpu().numpy()
+        ali = trainset[0][0].detach().cpu().numpy()
     bp() 
     print('done')
     
