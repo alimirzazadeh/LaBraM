@@ -21,7 +21,7 @@ from scipy.fft import rfftfreq, rfft
 from scipy.signal.windows import dpss as sp_dpss
 import matplotlib.pyplot as plt
 
-all_percent_changed = []
+# all_percent_changed = []
 
 """ 
 To do: reorder the channels to make sense for the conv2d model 
@@ -847,7 +847,7 @@ class PercentileNormalize:
         normalized = (data - self.low_value) / range_val * 2.0 - 1.0
         normalized_after = torch.clamp(normalized, min=-1.0, max=1.0)
         percent_changed = (normalized_after != normalized).float().numpy().mean()
-        all_percent_changed.append(percent_changed)
+        # all_percent_changed.append(percent_changed)
         # print('changed percent values: ', percent_changed)
         return normalized_after
 
@@ -1914,6 +1914,12 @@ if __name__ == "__main__":
     comparison_args.normalize_spec = False
     comparison_dataset = TUABBaselineDataset(comparison_args, mode='train', window_length=4, resolution=0.2, stride_length=1, multitaper=True)
     
+    COMPARISON_CHANNEL_ORDER = ['o1','o2','t6', 'p4', 'pz', 'p3','t5','t3','c3','cz','c4','t4','f8','f4','fz','f3','f7','fp1','fp2']
+    TUAB_CHANNEL_ORDER = ['EEG FP1-REF', 'EEG FP2-REF', 'EEG F3-REF', 'EEG F4-REF', 'EEG C3-REF', 'EEG C4-REF', 'EEG P3-REF', 'EEG P4-REF', 'EEG O1-REF', 'EEG O2-REF', 'EEG F7-REF', \
+                    'EEG F8-REF', 'EEG T3-REF', 'EEG T4-REF', 'EEG T5-REF', 'EEG T6-REF', 'EEG FZ-REF', 'EEG CZ-REF', 'EEG PZ-REF']
+    mapping = [8, 9, 15, 7, 18, 6, 14, 12, 4, 17, 5, 13, 11, 3, 16, 2, 10, 0, 1]
+    
+    
     for test_case in test_cases:
         trainset = TUABBaselineDataset( **test_case)
         print(trainset[0])
@@ -1926,17 +1932,21 @@ if __name__ == "__main__":
         print(aa[0].shape)
         print(bb[0].shape)
         bp() 
+        aa_remapped = aa[0][:, mapping, :]
+        bb_remapped = bb[0][:, mapping, :]
+        print(np.corrcoef(aa_remapped.detach().cpu().numpy().flatten(), bb_remapped.detach().cpu().numpy().flatten()))
+        
         print(test_case)
         print('Shape of aa: ', aa[0].shape)
         for item in tqdm(trainloader):
             all_mins.append(item[0].detach().cpu().numpy().min())
             all_maxs.append(item[0].detach().cpu().numpy().max())
-            print('Batch', len(all_percent_changed))
-            print('Mean percent changed: ', np.mean(all_percent_changed))
-            print('Std percent changed: ', np.std(all_percent_changed))
-            print('Max percent changed: ', np.max(all_percent_changed))
-            print('90 percentile percent changed: ', np.percentile(all_percent_changed, 90))
-    
+            # print('Batch', len(all_percent_changed))
+            # print('Mean percent changed: ', np.mean(all_percent_changed))
+            # print('Std percent changed: ', np.std(all_percent_changed))
+            # print('Max percent changed: ', np.max(all_percent_changed))
+            # print('90 percentile percent changed: ', np.percentile(all_percent_changed, 90))
+            
     print('Mean min: ', np.mean(all_mins))
     print('Mean max: ', np.mean(all_maxs))
     print('Std min: ', np.std(all_mins))
