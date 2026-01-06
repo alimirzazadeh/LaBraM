@@ -20,6 +20,7 @@ from torch.utils.tensorboard.summary import hparams
 #time it 
 import time
 start_time = time.time()
+start_time_str = time.strftime("%Y%m%d_%H%M%S")
 def run_single_seed(gpu_id, seed, base_args, return_dict):
     """Run a single training job on a specific GPU with a specific seed."""
     
@@ -170,7 +171,7 @@ def calculate_final_results(results):
     print('Based on Final Epoch: ')
     exp_name = results[0]['result'][3]
     last_underscore = exp_name[::-1].index('_')
-    exp_name = exp_name[:-last_underscore-1] + '_allseeds'
+    exp_name = exp_name[:-last_underscore-1] + '_allseeds' + '_' + start_time_str
     
     
     results_test = [item['result'][2] for item in results]
@@ -254,7 +255,7 @@ if __name__ == "__main__":
         'percentile_high': base_args['percentile_high'],
         'logv2': True,
         'drop_extra_channels': base_args['drop_extra_channels'],
-        'timestamp': time.strftime("%Y%m%d_%H%M%S"),
+        'timestamp': start_time_str,
     }
     # Create writer
     writer = SummaryWriter(log_dir=exp_name)
