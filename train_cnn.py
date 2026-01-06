@@ -230,7 +230,7 @@ def main(args):
         # if args.load_spec_true or args.load_spec_recon:
         #     data_length = 8 
         # else:
-        data_length = 10
+        data_length = 8
     elif args.dataset == 'TUEV':
         data_length = 5
     else:
