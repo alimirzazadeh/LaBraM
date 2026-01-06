@@ -1237,7 +1237,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
                 X = X[[i for i in range(X.shape[0]) if i not in [16, 17, 21, 22]], :]
             if self.args.reorder_channels:
                 mapping = [8, 9, 15, 7, 18, 6, 14, 12, 4, 17, 5, 13, 11, 3, 16, 2, 10, 0, 1]
-                X = X[mapping, :, :]
+                X = X[mapping, :]
             X = torch.from_numpy(X).float()
             X = self.spec_transform(X.T)
             X = X[:,:, :-1]
