@@ -272,7 +272,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--dataset', type=str, default='TUEV', choices=['TUAB', 'TUEV'])
+    parser.add_argument('--dataset', type=str, default='TUAB', choices=['TUAB', 'TUEV'])
     # parser.add_argument('--num_classes', type=int, default=6)
     parser.add_argument('--model_type', type=str, default='resnet', choices=['conv1d', 'conv2d', 'resnet'])
     parser.add_argument('--batch_size', type=int, default=128)
