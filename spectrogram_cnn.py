@@ -1936,7 +1936,7 @@ if __name__ == "__main__":
             try:
                 aa = next(iter_trainloader)
                 bb = next(iter_comparison_loader)
-                aa_remapped = aa[0][:, mapping, :, :]
+                aa_remapped = aa[0]
                 bb_remapped = bb[0]
                 corr_19 = pearsonr(aa_remapped.detach().cpu().numpy().flatten(), bb_remapped.detach().cpu().numpy().flatten())[0]
                 correlations.append(corr_19)
