@@ -1888,7 +1888,7 @@ if __name__ == "__main__":
     args.normalize_spec = True
     args.percentile_low = -40
     args.percentile_high = 40
-    args.drop_extra_channels = True
+    args.drop_extra_channels = False
     test_cases = [
         {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0},
         # {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
@@ -1932,8 +1932,8 @@ if __name__ == "__main__":
         print(aa[0].shape)
         print(bb[0].shape)
         bp() 
-        aa_remapped = aa[0][:, mapping, :]
-        bb_remapped = bb[0][:, mapping, :]
+        aa_remapped = aa[0][:, mapping, :, :]
+        bb_remapped = bb[0][:, mapping, :, :]
         print(np.corrcoef(aa_remapped.detach().cpu().numpy().flatten(), bb_remapped.detach().cpu().numpy().flatten()))
         
         print(test_case)
@@ -1971,17 +1971,17 @@ if __name__ == "__main__":
     #     print(f'Max correlation: {max_corr} between channel {max_corr_index[0]} and index {max_corr_index[1]}')
     
     ## can confirm there is 0.994-0.999 correlation between all channels, so the only difference is the 2 dropped channels. 
-    # if True: ## checks the lowest channel correlations, confirms that A1, A2, T1, T2 are the lowest 4 channels because they are missing 
-    #     idx = 2
-    #     peng = comparison_dataset[idx][0].detach().cpu().numpy()
-    #     ali = trainset[idx][0].detach().cpu().numpy()
-    #     ali = ali[:,:,2:9]
-    #     peng = peng[:,:,2:9].reshape(peng.shape[0], -1)
-    #     ali = ali.reshape(ali.shape[0], -1)
-    #     corr = np.dot(peng, ali.T) / (np.linalg.norm(peng, axis=1, keepdims=True) * np.linalg.norm(ali, axis=1, keepdims=True).T)
-    #     max_corr = np.max(corr,0)
-    #     print('Across shape: ', corr.shape[1], max_corr)
-    #     print('lowest 4 channels are: ', np.argsort(max_corr)[:4], 'with values: ', max_corr[np.argsort(max_corr)[:4]])
+    if True: ## checks the lowest channel correlations, confirms that A1, A2, T1, T2 are the lowest 4 channels because they are missing 
+        idx = 2
+        peng = comparison_dataset[idx][0].detach().cpu().numpy()
+        ali = trainset[idx][0].detach().cpu().numpy()
+        ali = ali[:,:,2:9]
+        peng = peng[:,:,2:9].reshape(peng.shape[0], -1)
+        ali = ali.reshape(ali.shape[0], -1)
+        corr = np.dot(peng, ali.T) / (np.linalg.norm(peng, axis=1, keepdims=True) * np.linalg.norm(ali, axis=1, keepdims=True).T)
+        max_corr = np.max(corr,0)
+        print('Across shape: ', corr.shape[1], max_corr)
+        print('lowest 4 channels are: ', np.argsort(max_corr)[:4], 'with values: ', max_corr[np.argsort(max_corr)[:4]])
     bp() 
 
     print('done')
