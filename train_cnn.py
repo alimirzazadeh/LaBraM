@@ -291,6 +291,7 @@ if __name__ == "__main__":
     parser.add_argument('--percentile_low', type=float, default=-20)
     parser.add_argument('--percentile_high', type=float, default=30)
     parser.add_argument('--drop_extra_channels', type=bool, default=False)
+    parser.add_argument('--reorder_channels', type=bool, default=False)
     parser.add_argument('--custom_name', type=str, default='')
     parser.add_argument('--seed', type=int, default=42)
     args = parser.parse_args()
