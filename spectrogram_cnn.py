@@ -20,6 +20,7 @@ import time
 from scipy.fft import rfftfreq, rfft
 from scipy.signal.windows import dpss as sp_dpss
 import matplotlib.pyplot as plt
+from scipy.stats import pearsonr
 
 # all_percent_changed = []
 
@@ -1925,16 +1926,18 @@ if __name__ == "__main__":
         print(trainset[0])
         print(comparison_dataset[0])
         
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=0)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=False, num_workers=0)
         aa = next(iter(trainloader))
-        comparison_loader = torch.utils.data.DataLoader(comparison_dataset, batch_size=128, shuffle=True, num_workers=0)
+        comparison_loader = torch.utils.data.DataLoader(comparison_dataset, batch_size=128, shuffle=False, num_workers=0)
         bb = next(iter(comparison_loader))
         print(aa[0].shape)
         print(bb[0].shape)
         bp() 
         aa_remapped = aa[0][:, mapping, :, :]
-        bb_remapped = bb[0][:, mapping, :, :]
-        print(np.corrcoef(aa_remapped.detach().cpu().numpy().flatten(), bb_remapped.detach().cpu().numpy().flatten()))
+        bb_remapped = bb[0]
+        corr_19 = pearsonr(aa_remapped.detach().cpu().numpy().flatten(), bb_remapped.detach().cpu().numpy().flatten())[0]
+        print(corr_19)
+        
         
         print(test_case)
         print('Shape of aa: ', aa[0].shape)
@@ -1971,19 +1974,27 @@ if __name__ == "__main__":
     #     print(f'Max correlation: {max_corr} between channel {max_corr_index[0]} and index {max_corr_index[1]}')
     
     ## can confirm there is 0.994-0.999 correlation between all channels, so the only difference is the 2 dropped channels. 
+    # if True: ## checks the lowest channel correlations, confirms that A1, A2, T1, T2 are the lowest 4 channels because they are missing 
+    #     idx = 0
+    #     peng = comparison_dataset[idx][0].detach().cpu().numpy()
+    #     ali = trainset[idx][0].detach().cpu().numpy()
+    #     ali = ali[:,:,2:9]
+    #     peng = peng[:,:,2:9].reshape(peng.shape[0], -1)
+    #     ali = ali.reshape(ali.shape[0], -1)
+    #     corr = np.dot(peng, ali.T) / (np.linalg.norm(peng, axis=1, keepdims=True) * np.linalg.norm(ali, axis=1, keepdims=True).T)
+    #     max_corr = np.max(corr,0)
+    #     print('Across shape: ', corr.shape[1], max_corr)
+    #     print('lowest 4 channels are: ', np.argsort(max_corr)[:4], 'with values: ', max_corr[np.argsort(max_corr)[:4]])
+    # bp() 
     if True: ## checks the lowest channel correlations, confirms that A1, A2, T1, T2 are the lowest 4 channels because they are missing 
-        idx = 0
+        idx = 1
         peng = comparison_dataset[idx][0].detach().cpu().numpy()
         ali = trainset[idx][0].detach().cpu().numpy()
-        ali = ali[:,:,2:9]
+        ali = ali[mapping,:,2:9]
         peng = peng[:,:,2:9].reshape(peng.shape[0], -1)
         ali = ali.reshape(ali.shape[0], -1)
-        corr = np.dot(peng, ali.T) / (np.linalg.norm(peng, axis=1, keepdims=True) * np.linalg.norm(ali, axis=1, keepdims=True).T)
-        max_corr = np.max(corr,0)
-        print('Across shape: ', corr.shape[1], max_corr)
-        print('lowest 4 channels are: ', np.argsort(max_corr)[:4], 'with values: ', max_corr[np.argsort(max_corr)[:4]])
-    bp() 
-
+        corr_19 = np.array([pearsonr(peng[i], ali[i])[0] for i in range(peng.shape[0])])
+        print(corr_19)
     print('done')
     
     ##
