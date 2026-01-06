@@ -587,7 +587,6 @@ class CustomResNet18(nn.Module):
         # [B, 19, 128, 6] -> [B, 6, 19, 128] -> [B*6, 19, 128]
         x = x.permute(0, 3, 1, 2).reshape(B * W, C, H)
         
-        bp() 
 
         x = self.conv1d(x)     # [B*6, 64, 64]
         x = self.bn1d(x)
