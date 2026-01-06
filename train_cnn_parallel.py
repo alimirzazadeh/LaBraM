@@ -84,6 +84,7 @@ def main_parallel():
     parser.add_argument('--percentile_low', type=float, default=-20)
     parser.add_argument('--percentile_high', type=float, default=30)
     parser.add_argument('--drop_extra_channels', default=False, action='store_true')
+    parser.add_argument('--reorder_channels', default=False, action='store_true')
     parser.add_argument('--custom_name', type=str, default='')
     # Parallel execution arguments
     parser.add_argument('--seeds', type=int, nargs='+', default=[1, 2, 3, 4, 5, 6, 7, 8],
