@@ -214,13 +214,13 @@ def main(args):
     
     
     if args.dataset == 'TUAB':
-        trainset = TUABBaselineDataset(args, mode='train', window_length=window_length, resolution=resolution)
-        valset = TUABBaselineDataset(args, mode='val', window_length=window_length, resolution=resolution)
-        testset = TUABBaselineDataset(args, mode='test', window_length=window_length, resolution=resolution)
+        trainset = TUABBaselineDataset(args, mode='train', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
+        valset = TUABBaselineDataset(args, mode='val', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
+        testset = TUABBaselineDataset(args, mode='test', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
     elif args.dataset == 'TUEV':
-        trainset = TUEVBaselineDataset(args, mode='train', window_length=window_length, resolution=resolution, stride_length=args.stride_length)
-        valset = TUEVBaselineDataset(args, mode='val', window_length=window_length, resolution=resolution)
-        testset = TUEVBaselineDataset(args, mode='test', window_length=window_length, resolution=resolution)
+        trainset = TUEVBaselineDataset(args, mode='train', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
+        valset = TUEVBaselineDataset(args, mode='val', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
+        testset = TUEVBaselineDataset(args, mode='test', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
 
     # Worker init function to seed each worker process
     def worker_init_fn(worker_id):
