@@ -1235,6 +1235,9 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
             if self.args.drop_extra_channels:
                 # drop rows 16, 17 21, 22
                 X = X[[i for i in range(X.shape[0]) if i not in [16, 17, 21, 22]], :]
+            if self.args.reorder_channels:
+                mapping = [8, 9, 15, 7, 18, 6, 14, 12, 4, 17, 5, 13, 11, 3, 16, 2, 10, 0, 1]
+                X = X[mapping, :, :]
             X = torch.from_numpy(X).float()
             X = self.spec_transform(X.T)
             X = X[:,:, :-1]
@@ -1890,6 +1893,7 @@ if __name__ == "__main__":
     args.percentile_low = -20
     args.percentile_high = 30
     args.drop_extra_channels = True
+    args.reorder_channels = True 
     test_cases = [
         {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0},
         # {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
@@ -1920,41 +1924,64 @@ if __name__ == "__main__":
                     'EEG F8-REF', 'EEG T3-REF', 'EEG T4-REF', 'EEG T5-REF', 'EEG T6-REF', 'EEG FZ-REF', 'EEG CZ-REF', 'EEG PZ-REF']
     mapping = [8, 9, 15, 7, 18, 6, 14, 12, 4, 17, 5, 13, 11, 3, 16, 2, 10, 0, 1]
     
-    
-    for test_case in test_cases:
+    if True:
+        test_case = test_cases[0]
         trainset = TUABBaselineDataset( **test_case)
-        print(trainset[0])
-        print(comparison_dataset[0])
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=False, num_workers=4)
+        comparison_loader = torch.utils.data.DataLoader(comparison_dataset, batch_size=128, shuffle=False, num_workers=4)
+        iter_trainloader = iter(trainloader)
+        iter_comparison_loader = iter(comparison_loader)
+        correlations = [] 
+        while True:
+            try:
+                aa = next(iter_trainloader)
+                bb = next(iter_comparison_loader)
+                aa_remapped = aa[0][:, mapping, :, :]
+                bb_remapped = bb[0]
+                corr_19 = pearsonr(aa_remapped.detach().cpu().numpy().flatten(), bb_remapped.detach().cpu().numpy().flatten())[0]
+                correlations.append(corr_19)
+                print(f'Batch {len(correlations)}')
+                print(f'Mean correlation: {np.mean(correlations)}')
+                print(f'Std correlation: {np.std(correlations)}')
+                print(f'Max correlation: {np.max(correlations)}')
+                print(f'Min correlation: {np.min(correlations)}')
+                print(f'90 percentile correlation: {np.percentile(correlations, 90)}')
+            except StopIteration:
+                break
+    # for test_case in test_cases:
+    #     trainset = TUABBaselineDataset( **test_case)
+    #     print(trainset[0])
+    #     print(comparison_dataset[0])
         
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=False, num_workers=0)
-        aa = next(iter(trainloader))
-        comparison_loader = torch.utils.data.DataLoader(comparison_dataset, batch_size=128, shuffle=False, num_workers=0)
-        bb = next(iter(comparison_loader))
-        print(aa[0].shape)
-        print(bb[0].shape)
-        bp() 
-        aa_remapped = aa[0][:, mapping, :, :]
-        bb_remapped = bb[0]
-        corr_19 = pearsonr(aa_remapped.detach().cpu().numpy().flatten(), bb_remapped.detach().cpu().numpy().flatten())[0]
-        print(corr_19)
+    #     trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=False, num_workers=0)
+    #     aa = next(iter(trainloader))
+    #     comparison_loader = torch.utils.data.DataLoader(comparison_dataset, batch_size=128, shuffle=False, num_workers=0)
+    #     bb = next(iter(comparison_loader))
+    #     print(aa[0].shape)
+    #     print(bb[0].shape)
+    #     bp() 
+    #     aa_remapped = aa[0][:, mapping, :, :]
+    #     bb_remapped = bb[0]
+    #     corr_19 = pearsonr(aa_remapped.detach().cpu().numpy().flatten(), bb_remapped.detach().cpu().numpy().flatten())[0]
+    #     print(corr_19)
         
         
-        print(test_case)
-        print('Shape of aa: ', aa[0].shape)
-        for item in tqdm(trainloader):
-            all_mins.append(item[0].detach().cpu().numpy().min())
-            all_maxs.append(item[0].detach().cpu().numpy().max())
-            # print('Batch', len(all_percent_changed))
-            # print('Mean percent changed: ', np.mean(all_percent_changed))
-            # print('Std percent changed: ', np.std(all_percent_changed))
-            # print('Max percent changed: ', np.max(all_percent_changed))
-            # print('90 percentile percent changed: ', np.percentile(all_percent_changed, 90))
+    #     print(test_case)
+    #     print('Shape of aa: ', aa[0].shape)
+    #     for item in tqdm(trainloader):
+    #         all_mins.append(item[0].detach().cpu().numpy().min())
+    #         all_maxs.append(item[0].detach().cpu().numpy().max())
+    #         # print('Batch', len(all_percent_changed))
+    #         # print('Mean percent changed: ', np.mean(all_percent_changed))
+    #         # print('Std percent changed: ', np.std(all_percent_changed))
+    #         # print('Max percent changed: ', np.max(all_percent_changed))
+    #         # print('90 percentile percent changed: ', np.percentile(all_percent_changed, 90))
             
-    print('Mean min: ', np.mean(all_mins))
-    print('Mean max: ', np.mean(all_maxs))
-    print('Std min: ', np.std(all_mins))
-    print('Std max: ', np.std(all_maxs))
-    print('\n\n')
+    # print('Mean min: ', np.mean(all_mins))
+    # print('Mean max: ', np.mean(all_maxs))
+    # print('Std min: ', np.std(all_mins))
+    # print('Std max: ', np.std(all_maxs))
+    # print('\n\n')
 
     ## the most correlated need to remove 0,1,9,10,11 channels 
     # if True: ## check Padding may cause a shift in the correct index , may be important for TUEV (not true). 
