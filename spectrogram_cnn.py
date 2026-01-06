@@ -1226,7 +1226,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         
         if self.args.load_spec_true:
             X = torch.from_numpy(sample["spec_true"]).float()
-            print('spec_true shape: ', X.shape)
+            # print('spec_true shape: ', X.shape)
         elif self.args.load_spec_recon:
             X = torch.from_numpy(sample["spec_recon"]).float()
         else:
@@ -1920,6 +1920,11 @@ if __name__ == "__main__":
         
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=0)
         aa = next(iter(trainloader))
+        comparison_loader = torch.utils.data.DataLoader(comparison_dataset, batch_size=128, shuffle=True, num_workers=0)
+        bb = next(iter(comparison_loader))
+        print(aa[0].shape)
+        print(bb[0].shape)
+        bp() 
         print(test_case)
         print('Shape of aa: ', aa[0].shape)
         for item in tqdm(trainloader):
