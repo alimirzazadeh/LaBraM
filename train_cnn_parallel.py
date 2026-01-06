@@ -115,6 +115,7 @@ def main_parallel():
         'percentile_high': args.percentile_high,
         'drop_extra_channels': args.drop_extra_channels,
         'custom_name': args.custom_name,
+        'reorder_channels': args.reorder_channels,
     }
     seeds = args.seeds
     num_gpus = args.num_gpus
