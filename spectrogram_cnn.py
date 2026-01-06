@@ -580,32 +580,34 @@ class CustomResNet18(nn.Module):
         """
         x = torch.moveaxis(x, 1, 3)
         B, C, H, W = x.shape
-        #assert C == 23 and H == 160 and W == 6, "Expected [B, 23, 160, 6], got [B, %d, %d, %d]" % (C, H, W)
+        #assert C == 19 and H == 128 and W == 6, "Expected [B, 19, 128, 6], got [B, %d, %d, %d]" % (C, H, W)
 
         # ---- 1D stem over height ----
         # Treat each width position as a separate 1D sequence over height.
-        # [B, 23, 160, 6] -> [B, 6, 23, 160] -> [B*6, 23, 160]
+        # [B, 19, 128, 6] -> [B, 6, 19, 128] -> [B*6, 19, 128]
         x = x.permute(0, 3, 1, 2).reshape(B * W, C, H)
+        
+        bp() 
 
-        x = self.conv1d(x)     # [B*6, 64, 80]
+        x = self.conv1d(x)     # [B*6, 64, 64]
         x = self.bn1d(x)
         x = self.relu(x)
-        x = self.maxpool1d(x)  # [B*6, 64, 40]
+        x = self.maxpool1d(x)  # [B*6, 64, 32]
 
-        # Reshape to 2D feature map: [B, 64, H=40, W=6]
+        # Reshape to 2D feature map: [B, 64, H=32, W=6]
         _, C1, H1 = x.shape
-        x = x.view(B, W, C1, H1).permute(0, 2, 3, 1)  # [B, 64, 40, 6]
+        x = x.view(B, W, C1, H1).permute(0, 2, 3, 1)  # [B, 64, 32, 6]
 
         # ---- 2D ResNet-18 body ----
-        x = self.layer1(x)  # [B, 64, 40, 3]
-        x = self.layer2(x)  # [B, 128, 20, 2]
-        x = self.layer3(x)  # [B, 256, 10, 1]
-        x = self.layer4(x)  # [B, 512,  5, 1]
+        x = self.layer1(x)  # [B, 64, 32, 3]
+        x = self.layer2(x)  # [B, 128, 16, 2]
+        x = self.layer3(x)  # [B, 256, 8, 1]
+        x = self.layer4(x)  # [B, 512,  4, 1]
 
-        return x  # [B, 512, 5, 1]
+        return x  # [B, 512, 4, 1]
 
     def forward(self, x):
-        x = self.forward_features(x)  # [B, 512, 5, 1]
+        x = self.forward_features(x)  # [B, 512, 4, 1]
 
         if self.num_classes is None:
             return x
