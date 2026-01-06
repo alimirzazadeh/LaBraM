@@ -1886,9 +1886,9 @@ if __name__ == "__main__":
     args.load_spec_true = False
     args.load_spec_recon = False
     args.normalize_spec = True
-    args.percentile_low = -40
-    args.percentile_high = 40
-    args.drop_extra_channels = False
+    args.percentile_low = -20
+    args.percentile_high = 30
+    args.drop_extra_channels = True
     test_cases = [
         {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 2.0},
         # {'args': args, 'mode': 'train','window_length': 4, 'resolution': 0.2, 'stride_length': 1, 'multitaper': True, 'bandwidth': 1.0},
@@ -1972,7 +1972,7 @@ if __name__ == "__main__":
     
     ## can confirm there is 0.994-0.999 correlation between all channels, so the only difference is the 2 dropped channels. 
     if True: ## checks the lowest channel correlations, confirms that A1, A2, T1, T2 are the lowest 4 channels because they are missing 
-        idx = 2
+        idx = 0
         peng = comparison_dataset[idx][0].detach().cpu().numpy()
         ali = trainset[idx][0].detach().cpu().numpy()
         ali = ali[:,:,2:9]
