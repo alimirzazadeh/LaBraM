@@ -222,17 +222,11 @@ def main(args):
         valset = TUEVBaselineDataset(args, mode='val', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
         testset = TUEVBaselineDataset(args, mode='test', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
 
-    # Worker init function to seed each worker process
-    def worker_init_fn(worker_id):
-        """Initialize each worker process with a unique seed based on the base seed."""
-        worker_seed = args.seed + worker_id
-        np.random.seed(worker_seed)
-        random.seed(worker_seed)
-        torch.manual_seed(worker_seed)
 
-    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, persistent_workers=True, worker_init_fn=worker_init_fn)
-    val_loader = DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, persistent_workers=True, worker_init_fn=worker_init_fn)
-    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, persistent_workers=True, worker_init_fn=worker_init_fn)
+
+    train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, persistent_workers=True)
+    val_loader = DataLoader(valset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, persistent_workers=True)
+    test_loader = DataLoader(testset, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=True, persistent_workers=True)
     num_channels = 19 if args.load_spec_true or args.load_spec_recon or args.drop_extra_channels else 23
     if args.dataset == 'TUAB':
         # if args.load_spec_true or args.load_spec_recon:
@@ -315,8 +309,8 @@ if __name__ == "__main__":
         torch.cuda.manual_seed_all(args.seed)
     
     # Set deterministic behavior for CuDNN
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
     
     args.resolution = 0.2
     main(args)
