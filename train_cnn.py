@@ -283,6 +283,7 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--window_length', type=int, default=4)
     parser.add_argument('--resolution_factor', type=int, default=1)
+    parser.add_argument('--resolution', type=float, default=0.25)
     parser.add_argument('--stride_length', type=int, default=1)
     parser.add_argument('--bandwidth', type=float, default=2.0)
     parser.add_argument('--multitaper', action='store_true', default=True)
@@ -313,5 +314,5 @@ if __name__ == "__main__":
     # torch.backends.cudnn.deterministic = True
     # torch.backends.cudnn.benchmark = False
     
-    args.resolution = 0.2
+    # args.resolution = 0.2
     main(args)

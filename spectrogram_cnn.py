@@ -857,7 +857,7 @@ class MultitaperSpectrogramTransform:
     def __init__(
         self,
         fs=200,
-        resolution=0.1,
+        resolution=0.1, ## deprecated
         win_length=1000,
         hop_length=1000,
         pad=0,
@@ -898,10 +898,8 @@ class MultitaperSpectrogramTransform:
             normalization: "length" or "full" (matches MNE). If "full", divides by sfreq.
             device: device to store pre-computed tensors on (None = CPU, will move to data device)
         """
-        n_fft = int(fs / resolution)
 
         self.fs = fs
-        self.resolution = resolution
         self.win_length = win_length
         self.hop_length = hop_length
         self.pad = pad
@@ -912,7 +910,6 @@ class MultitaperSpectrogramTransform:
         self.NW = bandwidth * win_length / fs
         self.center = center
         self.normalization = normalization
-        self.n_fft = n_fft
         self.device = device  # Store device preference
 
         # Use MNE's _compute_mt_params to get tapers and eigenvalues (exact match)
@@ -1103,7 +1100,7 @@ class MultitaperSpectrogramTransform:
 
     def __repr__(self):
         return (
-            f"{self.__class__.__name__}(fs={self.fs}, resolution={self.resolution}, "
+            f"{self.__class__.__name__}(fs={self.fs}, "
             f"min_freq={self.min_freq}, max_freq={self.max_freq}, NW={self.NW}, K={self.K})"
         )
 
