@@ -928,9 +928,9 @@ class MultitaperSpectrogramTransform:
         
         self.K = len(eigvals_np)
         
-        # print(f'Bandwidth: {bandwidth}')
-        # print(f'NW: {self.NW}')
-        # print(f'Number of tapers: {self.K}')
+        print(f'Bandwidth: {bandwidth}')
+        print(f'NW: {self.NW}')
+        print(f'Number of tapers: {self.K}')
         # sys.exit()
         # Pre-compute as torch tensors (major speedup: no conversion on each call)
         # Store on CPU initially, will move to data device when needed
