@@ -867,6 +867,7 @@ class MultitaperSpectrogramTransform:
         bandwidth=2.0,
         center=True,
         normalization="full",
+        K_use=None,
         device=None,
     ):
         """
@@ -911,21 +912,26 @@ class MultitaperSpectrogramTransform:
         self.center = center
         self.normalization = normalization
         self.device = device  # Store device preference
-
+        self.K_use = K_use
         # Use MNE's _compute_mt_params to get tapers and eigenvalues (exact match)
         # Compute bandwidth from NW: bandwidth = NW * fs / win_length
         
         dpss_np, eigvals_np, _ = _compute_mt_params(
-            win_length, fs, bandwidth, low_bias=True, adaptive=False
+            win_length, fs, bandwidth, low_bias=False, adaptive=False
         )
-        
+        if self.K_use is not None:                                # <-- ADD BLOCK
+            K = int(self.K_use)
+            if K < 1 or K > len(eigvals_np):
+                raise ValueError(f"K_use must be in [1, {len(eigvals_np)}], got {K}")
+            dpss_np = dpss_np[:K]
+            eigvals_np = eigvals_np[:K]
         
         self.K = len(eigvals_np)
         
-        print(f'Bandwidth: {bandwidth}')
-        print(f'NW: {self.NW}')
-        print(f'Number of tapers: {self.K}')
-        sys.exit()
+        # print(f'Bandwidth: {bandwidth}')
+        # print(f'NW: {self.NW}')
+        # print(f'Number of tapers: {self.K}')
+        # sys.exit()
         # Pre-compute as torch tensors (major speedup: no conversion on each call)
         # Store on CPU initially, will move to data device when needed
         self._dpss = torch.from_numpy(dpss_np.copy()).float()  # (K, win_length)
@@ -1212,7 +1218,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         if multitaper:
             self.spec_transform = MultitaperSpectrogramTransform(
                 fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
-                min_freq=self.min_freq, max_freq=self.max_freq, bandwidth=bandwidth)
+                min_freq=self.min_freq, max_freq=self.max_freq, bandwidth=bandwidth, K_use=1)  # TODO: change this back
         else:
             self.spec_transform = SpectrogramTransform(
                     fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
