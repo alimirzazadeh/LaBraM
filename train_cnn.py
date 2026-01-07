@@ -286,6 +286,7 @@ if __name__ == "__main__":
     parser.add_argument('--stride_length', type=int, default=1)
     parser.add_argument('--bandwidth', type=float, default=2.0)
     parser.add_argument('--multitaper', action='store_true', default=True)
+    parser.add_argument('--no-multitaper',dest='multitaper',action='store_false',help='Disable multitaper')
     parser.add_argument('--load_spec_true', action='store_true', default=False)
     parser.add_argument('--load_spec_recon', action='store_true', default=False)
     parser.add_argument('--lr_warmup_prop', type=float, default=0.2)
