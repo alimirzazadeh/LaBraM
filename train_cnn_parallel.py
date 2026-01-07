@@ -39,7 +39,6 @@ def run_single_seed(gpu_id, seed, base_args, return_dict):
     # Create a complete args namespace with all fields
     args = argparse.Namespace(**base_args)
     args.seed = seed
-    args.resolution = 0.2  # Set as in original main
     
     # Set seeds
     torch.manual_seed(seed)
@@ -74,6 +73,7 @@ def main_parallel():
     parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--window_length', type=int, default=4)
     parser.add_argument('--resolution_factor', type=int, default=1)
+    parser.add_argument('--resolution', type=float, default=0.25)
     parser.add_argument('--stride_length', type=int, default=1)
     parser.add_argument('--bandwidth', type=float, default=2.0)
     parser.add_argument('--multitaper', action='store_true', default=True)
@@ -105,6 +105,7 @@ def main_parallel():
         'epochs': args.epochs,
         'window_length': args.window_length,
         'resolution_factor': args.resolution_factor,
+        'resolution': args.resolution,
         'stride_length': args.stride_length,
         'bandwidth': args.bandwidth,
         'multitaper': args.multitaper,
