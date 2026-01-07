@@ -211,16 +211,16 @@ def main(args):
     print(exp_name)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     writer = SummaryWriter(log_dir=f'/data/scratch/alimirz/2025/EEG_FM/{args.dataset}_V2/{exp_name}')
-    
+    K_use = None if args.k_use <= 0 else args.k_use
     
     if args.dataset == 'TUAB':
-        trainset = TUABBaselineDataset(args, mode='train', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
-        valset = TUABBaselineDataset(args, mode='val', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
-        testset = TUABBaselineDataset(args, mode='test', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
+        trainset = TUABBaselineDataset(args, mode='train', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper, K_use=K_use)
+        valset = TUABBaselineDataset(args, mode='val', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper, K_use=K_use)
+        testset = TUABBaselineDataset(args, mode='test', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper, K_use=K_use)
     elif args.dataset == 'TUEV':
-        trainset = TUEVBaselineDataset(args, mode='train', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
-        valset = TUEVBaselineDataset(args, mode='val', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
-        testset = TUEVBaselineDataset(args, mode='test', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper)
+        trainset = TUEVBaselineDataset(args, mode='train', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper, K_use=K_use)
+        valset = TUEVBaselineDataset(args, mode='val', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper, K_use=K_use)
+        testset = TUEVBaselineDataset(args, mode='test', window_length=window_length, resolution=resolution, stride_length=args.stride_length, bandwidth=args.bandwidth, multitaper=args.multitaper, K_use=K_use)
 
 
 
@@ -298,6 +298,7 @@ if __name__ == "__main__":
     parser.add_argument('--reorder_channels', action='store_true', default=False)
     parser.add_argument('--custom_name', type=str, default='')
     parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--k_use', type=int, default=0, help='Force number of tapers to use, 0 means use all tapers')
     args = parser.parse_args()
     
     # Set seeds for reproducibility

@@ -87,6 +87,7 @@ def main_parallel():
     parser.add_argument('--drop_extra_channels', default=False, action='store_true')
     parser.add_argument('--reorder_channels', default=False, action='store_true')
     parser.add_argument('--custom_name', type=str, default='')
+    parser.add_argument('--k_use', type=int, default=0, help='Force number of tapers to use, 0 means use all tapers')
     # Parallel execution arguments
     parser.add_argument('--seeds', type=int, nargs='+', default=[1, 2, 3, 4, 5, 6, 7, 8],
                        help='List of seeds to run')

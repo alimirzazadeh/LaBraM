@@ -1200,7 +1200,7 @@ class SpecNorm:
         return (data - self.mean_vector) / self.std_vector
 
 class TUABBaselineDataset(torch.utils.data.Dataset):
-    def __init__(self, args, mode='train', window_length=5, resolution=0.2, stride_length=1, multitaper=False, bandwidth=2.0):
+    def __init__(self, args, mode='train', window_length=5, resolution=0.2, stride_length=1, multitaper=False, bandwidth=2.0, K_use=None):
         assert mode in ['train','val','test']
         self.mode = mode
         self.args = args
@@ -1219,7 +1219,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         if multitaper:
             self.spec_transform = MultitaperSpectrogramTransform(
                 fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
-                min_freq=self.min_freq, max_freq=self.max_freq, bandwidth=bandwidth, K_use=1)  # TODO: change this back
+                min_freq=self.min_freq, max_freq=self.max_freq, bandwidth=bandwidth, K_use=K_use) 
         else:
             self.spec_transform = SpectrogramTransform(
                     fs=self.fs, resolution=self.resolution, win_length=self.fs * self.window_length, hop_length=self.fs * self.stride_length, 
