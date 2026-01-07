@@ -238,7 +238,7 @@ def main(args):
     else:
         raise ValueError(f"Invalid dataset: {args.dataset}")
 
-    model = SpectrogramCNN(model=model_type, num_classes=num_classes, dataset=args.dataset, num_channels=num_channels, data_length=data_length)
+    model = SpectrogramCNN(model=model_type, num_classes=num_classes, dataset=args.dataset, num_channels=num_channels, data_length=data_length, resolution=None if args.multitaper or args.load_spec_true or args.load_spec_recon else resolution)
     model = model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=lr)
