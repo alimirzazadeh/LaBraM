@@ -14,6 +14,7 @@ for file in tqdm(files):
             if 'spec_true_bw1' not in sample:
                 unsuccessful_files.append(file)
                 ## remove the file 
+                print(f'Removing file: {file}')
                 os.remove(os.path.join(root, file))
             else:
                 successful_files.append(file)
@@ -32,6 +33,7 @@ for file in tqdm(files):
             sample = pickle.load(f)
             if 'spec_true_bw1' not in sample:
                 unsuccessful_files.append(file)
+                print(f'Removing file: {file}')
                 os.remove(os.path.join(root, file))
             else:
                 successful_files.append(file)
@@ -50,6 +52,7 @@ for file in tqdm(files):
             sample = pickle.load(f)
             if 'spec_true_bw1' not in sample:
                 unsuccessful_files.append(file)
+                print(f'Removing file: {file}')
                 os.remove(os.path.join(root, file))
             else:
                 successful_files.append(file)
