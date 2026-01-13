@@ -13,12 +13,14 @@ for file in tqdm(files):
             sample = pickle.load(f)
             if 'spec_true_bw1' not in sample:
                 unsuccessful_files.append(file)
+                ## remove the file 
+                os.remove(os.path.join(root, file))
             else:
                 successful_files.append(file)
 
 print(f'Number of unsuccessful files: {len(unsuccessful_files)}')
 print(f'Number of successful files: {len(successful_files)}')
-bp() 
+
 
 root = "/data/netmit/sleep_lab/EEG_FM/TUAB/data/v3.0.1/edf/processed/train_with_spec"
 files = os.listdir(root)
@@ -30,12 +32,13 @@ for file in tqdm(files):
             sample = pickle.load(f)
             if 'spec_true_bw1' not in sample:
                 unsuccessful_files.append(file)
+                os.remove(os.path.join(root, file))
             else:
                 successful_files.append(file)
 
 print(f'Number of unsuccessful files: {len(unsuccessful_files)}')
 print(f'Number of successful files: {len(successful_files)}')
-bp() 
+
 
 root = "/data/netmit/sleep_lab/EEG_FM/TUAB/data/v3.0.1/edf/processed/val_with_spec"
 files = os.listdir(root)
@@ -47,9 +50,9 @@ for file in tqdm(files):
             sample = pickle.load(f)
             if 'spec_true_bw1' not in sample:
                 unsuccessful_files.append(file)
+                os.remove(os.path.join(root, file))
             else:
                 successful_files.append(file)
 
 print(f'Number of unsuccessful files: {len(unsuccessful_files)}')
 print(f'Number of successful files: {len(successful_files)}')
-bp() 
