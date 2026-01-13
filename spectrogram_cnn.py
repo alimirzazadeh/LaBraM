@@ -1235,6 +1235,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         sample = pickle.load(open(os.path.join(self.root, self.files[index]), "rb"))
         
         if self.args.load_spec_true:
+            print('sample keys: ', sample.keys())
             if self.args.load_spec_version == 0:
                 X = torch.from_numpy(sample["spec_true"]).float()
             elif self.args.load_spec_version == 1:
@@ -1245,6 +1246,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
                 raise ValueError("incorrect reconstruction version")
             # print('spec_true shape: ', X.shape)
         elif self.args.load_spec_recon:
+            print('sample keys: ', sample.keys())
             if self.args.load_spec_version == 0:
                 X = torch.from_numpy(sample["spec_recon"]).float()
             elif self.args.load_spec_version == 1:
