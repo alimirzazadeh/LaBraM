@@ -1235,7 +1235,7 @@ class TUABBaselineDataset(torch.utils.data.Dataset):
         sample = pickle.load(open(os.path.join(self.root, self.files[index]), "rb"))
         
         if self.args.load_spec_true:
-            print('sample keys: ', sample.keys())
+            # print('sample keys: ', sample.keys())
             if self.args.load_spec_version == 0:
                 X = torch.from_numpy(sample["spec_true"]).float()
             elif self.args.load_spec_version == 1:
