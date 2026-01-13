@@ -43,11 +43,14 @@ standard_channels = [
     "EEG O2-REF",
 ]
 
-def find_spec(fileName):
+def find_spec(fileName, version=0):
     edf_file = fileName.split('/')[-1]
     patient_id = edf_file.split('_')[0]
     session_id = edf_file[len(patient_id) + 1:].strip('.edf')
-    recon_dir = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUAB/reconstructions_2025-12-22T22-12-45_harvard_vqgan_2_embed32n8192corr01vqtorchema_patchgan_multitaper_128x128_8x16"
+    recon_dir_og = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUAB/reconstructions_2025-12-22T22-12-45_harvard_vqgan_2_embed32n8192corr01vqtorchema_patchgan_multitaper_128x128_8x16"
+    recon_dir_bw2 = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUAB_reconstructions/reconstructions_harvard_vqgan_engaging_128x640_-40_40_BW_2"
+    recon_dir_bw1 = "/data/netmit/sleep_lab/EEG_FM/data_EEG/downstream/TUAB_reconstructions/reconstructions_harvard_vqgan_engaging_128x640_-40_40_BW_1"
+    recon_dir = [recon_dir_og, recon_dir_bw2, recon_dir_bw1][version]
     # aaaaamxe_ses-s001_t000_preprocessed-eeg.npz
     # aaaaakyz_s007_t000.edf
     peng_file_name = f"{patient_id}_ses-{session_id}_preprocessed-eeg.npz" # aaaaabji_ses-aaaaabji_00000001_preprocessed-eeg.npz
@@ -90,14 +93,16 @@ def split_and_dump(params):
                 continue
             
             if WITH_SPEC:
-                spec_true, spec_recon = find_spec(file_path)
+                spec_true, spec_recon = find_spec(file_path, version=0)
+                spec_true_bw2, spec_recon_bw2 = find_spec(file_path, version=1)
+                spec_true_bw1, spec_recon_bw1 = find_spec(file_path, version=2)
             for i in range(channeled_data.shape[1] // 2000):
                 dump_path = os.path.join(
                     dump_folder, file.split(".")[0] + "_" + str(i) + ".pkl"
                 )
                 if WITH_SPEC:
                     pickle.dump(
-                        {"X": channeled_data[:, i * 2000 : (i + 1) * 2000], "y": label, "spec_true": spec_true[:, :, i * 10 : (i + 1) * 10], "spec_recon": spec_recon[:, :, i * 10 : (i + 1) * 10]},
+                        {"X": channeled_data[:, i * 2000 : (i + 1) * 2000], "y": label, "spec_true": spec_true[:, :, i * 10 : (i + 1) * 10], "spec_recon": spec_recon[:, :, i * 10 : (i + 1) * 10], "spec_true_bw2": spec_true_bw2[:, :, i * 10 : (i + 1) * 10], "spec_recon_bw2": spec_recon_bw2[:, :, i * 10 : (i + 1) * 10], "spec_true_bw1": spec_true_bw1[:, :, i * 10 : (i + 1) * 10], "spec_recon_bw1": spec_recon_bw1[:, :, i * 10 : (i + 1) * 10]},
                         open(dump_path, "wb"),
                     )
                 else:
