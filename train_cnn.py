@@ -299,6 +299,7 @@ if __name__ == "__main__":
     parser.add_argument('--custom_name', type=str, default='')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--k_use', type=int, default=0, help='Force number of tapers to use, 0 means use all tapers')
+    parser.add_argument('--load_spec_version', type=int, default=0, help='Version of the spectrogram to load')
     args = parser.parse_args()
     
     # Set seeds for reproducibility

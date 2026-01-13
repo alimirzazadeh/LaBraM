@@ -80,6 +80,7 @@ def main_parallel():
     parser.add_argument('--no-multitaper',dest='multitaper',action='store_false',help='Disable multitaper')
     parser.add_argument('--load_spec_true', default=False, action='store_true')
     parser.add_argument('--load_spec_recon', default=False, action='store_true')
+    parser.add_argument('--load_spec_version', type=int, default=0, help='Version of the spectrogram to load')
     parser.add_argument('--lr_warmup_prop', type=float, default=0.2)
     parser.add_argument('--normalize_spec', default=False, action='store_true')
     parser.add_argument('--percentile_low', type=float, default=-20)
@@ -120,6 +121,7 @@ def main_parallel():
         'custom_name': args.custom_name,
         'reorder_channels': args.reorder_channels,
         'k_use': args.k_use,
+        'load_spec_version': args.load_spec_version,
     }
     seeds = args.seeds
     num_gpus = args.num_gpus
