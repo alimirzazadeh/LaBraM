@@ -3,7 +3,8 @@ import pickle
 from ipdb import set_trace as bp
 ## multithread this 
 from multiprocessing import Pool
-import sys 
+import sys
+from tqdm import tqdm 
 
 if sys.argv[1] == 'test':
     root = "/data/netmit/sleep_lab/EEG_FM/TUAB/data/v3.0.1/edf/processed/test_with_spec"
@@ -30,7 +31,7 @@ def check_file(file):
         return (file, False)  # Treat errors as unsuccessful
 
 with Pool(processes=10) as pool:
-    results = pool.map(check_file, files)
+    results = list(tqdm(pool.imap(check_file, files), total=len(files), desc="Checking files"))
     
 unsuccessful_files = [file for file, status in results if status is False]
 successful_files = [file for file, status in results if status is True]
@@ -39,5 +40,5 @@ print(f'Number of unsuccessful files: {len(unsuccessful_files)}')
 print(f'Number of successful files: {len(successful_files)}')
 
 bp() 
-for file in unsuccessful_files:
+for file in tqdm(unsuccessful_files, desc="Deleting unsuccessful files"):
     os.remove(os.path.join(root, file))
